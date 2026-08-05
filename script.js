@@ -21,40 +21,55 @@ const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
 
 // ==========================================
-// 2. GESTION DES IP ET DETECTION VPN (HTTPS Compatible)
+// 2. GESTION DES IP ET DETECTION VPN (Sécurisée)
 // ==========================================
 let userIp = "IP_Inconnue";
 let isVPN = false;
+let ipVerifiee = false;
 
-// Mots-clés fréquents d'organisations VPN / Hosting
-const vpnKeywords = ["vpn", "proxy", "hosting", "cloud", "datacenter", "digitalocean", "ovh", "mullvad", "nord", "expressvpn", "proton", "vultr", "linode", "aws", "amazon", "hetzner"];
+const vpnKeywords = [
+    "vpn", "proxy", "hosting", "cloud", "datacenter", "digitalocean", "ovh",
+    "mullvad", "nord", "expressvpn", "proton", "vultr", "linode", "aws", 
+    "amazon", "hetzner", "cyberghost", "surfshark", "ipvanish", "tunnelbear",
+    "private internet", "pia", "choopa", "leaseweb", "colocrossing", "oracle",
+    "alibaba", "tencent", "google", "dedicenter", "quadranet", "tzulo"
+];
 
-fetch("https://ipapi.co/json/")
-  .then(res => res.json())
-  .then(data => {
-      if (data.ip) userIp = data.ip;
-      const org = (data.org || data.asn || "").toLowerCase();
-      if (vpnKeywords.some(keyword => org.includes(keyword))) {
-          isVPN = true;
-      }
-  })
-  .catch(() => {
-      // Fallback si ipapi est bloqué par un adblocker
-      fetch("https://api.ipify.org?format=json")
-        .then(res => res.json())
-        .then(data => { userIp = data.ip; })
-        .catch(() => {});
-  });
+async function verifierConnexion() {
+    if (ipVerifiee) return;
+    try {
+        const res = await fetch("https://ipwho.is/");
+        const data = await res.json();
+        if (data && data.ip) userIp = data.ip;
+        
+        const isp = (data.connection && data.connection.isp ? data.connection.isp : "").toLowerCase();
+        const org = (data.connection && data.connection.org ? data.connection.org : "").toLowerCase();
+        
+        if (vpnKeywords.some(kw => isp.includes(kw) || org.includes(kw))) {
+            isVPN = true;
+        }
+    } catch (e) {
+        // Secours si ipwho.is est bloqué par un AdBlocker
+        try {
+            const res2 = await fetch("https://api.ipify.org?format=json");
+            const data2 = await res2.json();
+            if (data2 && data2.ip) userIp = data2.ip;
+        } catch (err) {}
+    } finally {
+        ipVerifiee = true;
+    }
+}
 
-// Listes locales de modération
+verifierConnexion();
+
 let listBanned = [];
 let listMuted = [];
+let dernieresDonneesMessages = []; // Cache local pour re-rendre en cas de changement de statut Admin
 
 // ==========================================
-// 3. CODE SITE & JEUX (Intact)
+// 3. CODE SITE & JEUX
 // ==========================================
 
-// Mode sombre
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
     const savedTheme = localStorage.getItem("theme");
@@ -74,7 +89,6 @@ if (toggleBtn) {
     });
 }
 
-// JEUX et modal
 const gameCards = document.querySelectorAll('.game-card');
 const modal = document.getElementById('game-modal');
 const modalTitle = document.getElementById('modal-title');
@@ -104,7 +118,6 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// Plein écran
 fsBtn.addEventListener('click', () => {
     const iframe = gameContainer.querySelector('iframe');
     if (iframe && iframe.requestFullscreen) {
@@ -112,7 +125,6 @@ fsBtn.addEventListener('click', () => {
     }
 });
 
-// Support
 const contactForm = document.getElementById('contact-form');
 const confirmation = document.getElementById('confirmation');
 const questionLabel = document.getElementById('question-label');
@@ -126,7 +138,6 @@ function genererCalcul() {
     questionLabel.textContent = `Combien font ${num1} + ${num2} ?`;
 }
 
-// Simulateur Joueurs
 const liveElement = document.getElementById('nb-live');
 let nbActuel = 15;
 function actualiserJoueurs() {
@@ -167,7 +178,6 @@ const pseudoInput = document.getElementById("chat-pseudo");
 const adminPwdInput = document.getElementById("chat-admin-pwd");
 let estAdminConnecte = false;
 
-// Création dynamique du panneau admin
 const adminPanel = document.createElement("div");
 adminPanel.style.display = "none";
 adminPanel.style.background = "#2b0000";
@@ -208,7 +218,7 @@ function renderAdminPanel() {
     listBanned.forEach(b => {
         html += `<div style="margin-bottom: 8px; font-size: 0.85rem; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
             <div>
-                🔨 <strong>${b.pseudoBrut}</strong> <span style="color:#aaa;">(${b.ip})</span><br>
+                🔨 <strong>${b.pseudoBrut || 'Anonyme'}</strong> <span style="color:#aaa;">(${b.ip})</span><br>
                 <i style="color:#ddd;">"${b.motif}"</i>
             </div>
             <button onclick="window.unbanUser('${b.id}')" style="background:#28a745; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Débannir</button>
@@ -218,7 +228,7 @@ function renderAdminPanel() {
     listMuted.forEach(m => {
         html += `<div style="margin-bottom: 8px; font-size: 0.85rem; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
             <div>
-                🔇 <strong>${m.pseudoBrut}</strong> <span style="color:#aaa;">(${m.ip})</span><br>
+                🔇 <strong>${m.pseudoBrut || 'Anonyme'}</strong> <span style="color:#aaa;">(${m.ip})</span><br>
                 <i style="color:#ddd;">"${m.motif}"</i>
             </div>
             <button onclick="window.unmuteUser('${m.id}')" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Démuter</button>
@@ -226,6 +236,93 @@ function renderAdminPanel() {
     });
 
     adminPanel.innerHTML = html;
+}
+
+// Fonction de rendu du Fil de discussion
+function afficherMessagesHTML(snapshotDocs) {
+    if (!container) return;
+    container.innerHTML = "";
+    
+    snapshotDocs.forEach((docSnap) => {
+      const msg = docSnap.data();
+      const div = document.createElement("div");
+      div.style.marginBottom = "10px";
+      div.style.wordBreak = "break-word";
+      div.style.display = "flex";
+      div.style.justifyContent = "space-between";
+      div.style.alignItems = "center";
+      
+      let contenu = msg.texte || "";
+      let lowerContenu = typeof contenu === 'string' ? contenu.toLowerCase() : "";
+
+      if (contenu.startsWith('data:audio') || lowerContenu.endsWith('.mp3')) {
+          contenu = `<br><audio controls src="${contenu}" style="max-width: 100%; margin-top: 5px; height: 30px;"></audio>`;
+      } 
+      else if (contenu.startsWith('data:video') || lowerContenu.endsWith('.mp4')) {
+          contenu = `<br><video controls src="${contenu}" style="max-width: 100%; border-radius: 5px; margin-top: 5px; max-height: 200px;"></video>`;
+      }
+      else if (contenu.startsWith('data:image') || lowerContenu.endsWith('.png') || lowerContenu.endsWith('.jpg') || lowerContenu.endsWith('.jpeg') || lowerContenu.endsWith('.gif')) {
+          contenu = `<br><img src="${contenu}" alt="Image partagée" style="max-width: 100%; max-height: 200px; border-radius: 5px; margin-top: 5px;">`;
+      }
+
+      let cleanPseudo = msg.pseudoBrut;
+      if (!cleanPseudo && msg.pseudoHTML) {
+        cleanPseudo = msg.pseudoHTML.replace(/<[^>]*>?/gm, '').replace('🛡️ ADMIN (', '').replace(')', '');
+      }
+      if (!cleanPseudo) cleanPseudo = msg.pseudo || "Anonyme";
+
+      const contentSpan = document.createElement("span");
+      const identifiant = msg.pseudoHTML || `<strong style="color: var(--accent-color);">${cleanPseudo}</strong>`;
+      contentSpan.innerHTML = `${identifiant} : ${contenu}`;
+      div.appendChild(contentSpan);
+
+      // Outils de modération Admin
+      if (estAdminConnecte) {
+        const adminTools = document.createElement("div");
+        adminTools.style.display = "flex";
+        adminTools.style.gap = "5px";
+
+        let sanctionMotif = typeof msg.texte === 'string' && !msg.texte.startsWith('data:') ? msg.texte : '[Fichier Multimédia]';
+
+        const muteBtn = document.createElement("button");
+        muteBtn.textContent = "🔇";
+        muteBtn.title = "Muter cette IP indéfiniment";
+        muteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
+        muteBtn.onclick = async () => {
+          if (msg.ip && confirm(`Rendre muet ${cleanPseudo} ?`)) {
+            await addDoc(mutedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
+          }
+        };
+
+        const banBtn = document.createElement("button");
+        banBtn.textContent = "🔨";
+        banBtn.title = "Bannir cette IP";
+        banBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
+        banBtn.onclick = async () => {
+          if (msg.ip && confirm(`Bannir définitivement ${cleanPseudo} ?`)) {
+            await addDoc(bannedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
+          }
+        };
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.title = "Supprimer le message";
+        deleteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
+        deleteBtn.onclick = async () => {
+          if (confirm("Supprimer ce message ?")) {
+            await deleteDoc(doc(db, "messages", docSnap.id));
+          }
+        };
+
+        adminTools.appendChild(muteBtn);
+        adminTools.appendChild(banBtn);
+        adminTools.appendChild(deleteBtn);
+        div.appendChild(adminTools);
+      }
+
+      container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
 }
 
 onSnapshot(bannedIpsRef, (snapshot) => {
@@ -260,14 +357,20 @@ if (btnSend && container) {
         adminPwdInput.style.display = "none";
         alert("🛡️ Connecté en tant qu'Administrateur !");
         renderAdminPanel();
+        afficherMessagesHTML(dernieresDonneesMessages); // Rafraîchit les messages pour afficher les boutons d'admin
       } else {
-        alert("Mot de passe Admin incorrect ! Seul l'administrateur peut utiliser le pseudo Kevin.");
+        alert("Mot de passe Admin incorrect !");
         return;
       }
     }
 
-    // Vérifications Sanctions & VPN pour les joueurs normaux
     if (!estAdminConnecte) {
+      if (!ipVerifiee) {
+          btnSend.disabled = true;
+          await verifierConnexion();
+          btnSend.disabled = false;
+      }
+
       if (isVPN) {
         alert("Accès refusé : L'utilisation d'un VPN ou Proxy est interdite sur le chat.");
         return;
@@ -328,90 +431,12 @@ if (btnSend && container) {
     }
   });
 
-  // Listener Messages Firestore
+  // Listener Firestore Realtime pour les messages
   const q = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
   onSnapshot(q, (snapshot) => {
-    container.innerHTML = ""; 
-    snapshot.forEach((docSnap) => {
-      const msg = docSnap.data();
-      const div = document.createElement("div");
-      div.style.marginBottom = "10px";
-      div.style.wordBreak = "break-word";
-      div.style.display = "flex";
-      div.style.justifyContent = "space-between";
-      div.style.alignItems = "center";
-      
-      let contenu = msg.texte;
-      let lowerContenu = typeof contenu === 'string' ? contenu.toLowerCase() : "";
-
-      if (contenu.startsWith('data:audio') || lowerContenu.endsWith('.mp3')) {
-          contenu = `<br><audio controls src="${contenu}" style="max-width: 100%; margin-top: 5px; height: 30px;"></audio>`;
-      } 
-      else if (contenu.startsWith('data:video') || lowerContenu.endsWith('.mp4')) {
-          contenu = `<br><video controls src="${contenu}" style="max-width: 100%; border-radius: 5px; margin-top: 5px; max-height: 200px;"></video>`;
-      }
-      else if (contenu.startsWith('data:image') || lowerContenu.endsWith('.png') || lowerContenu.endsWith('.jpg') || lowerContenu.endsWith('.jpeg') || lowerContenu.endsWith('.gif')) {
-          contenu = `<br><img src="${contenu}" alt="Image partagée" style="max-width: 100%; max-height: 200px; border-radius: 5px; margin-top: 5px;">`;
-      }
-
-      // Extraction propre du pseudo pour éviter les "Inconnu"
-      let cleanPseudo = msg.pseudoBrut;
-      if (!cleanPseudo && msg.pseudoHTML) {
-        cleanPseudo = msg.pseudoHTML.replace(/<[^>]*>?/gm, '').replace('🛡️ ADMIN (', '').replace(')', '');
-      }
-      if (!cleanPseudo) cleanPseudo = msg.pseudo || "Anonyme";
-
-      const contentSpan = document.createElement("span");
-      const identifiant = msg.pseudoHTML || `<strong style="color: var(--accent-color);">${cleanPseudo}</strong>`;
-      contentSpan.innerHTML = `${identifiant} : ${contenu}`;
-      div.appendChild(contentSpan);
-
-      // Actions de modération
-      if (estAdminConnecte) {
-        const adminTools = document.createElement("div");
-        adminTools.style.display = "flex";
-        adminTools.style.gap = "5px";
-
-        let sanctionMotif = typeof msg.texte === 'string' && !msg.texte.startsWith('data:') ? msg.texte : '[Fichier Multimédia]';
-
-        const muteBtn = document.createElement("button");
-        muteBtn.textContent = "🔇";
-        muteBtn.title = "Muter cette IP";
-        muteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
-        muteBtn.onclick = async () => {
-          if (msg.ip && confirm(`Rendre muet ${cleanPseudo} ?`)) {
-            await addDoc(mutedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
-          }
-        };
-
-        const banBtn = document.createElement("button");
-        banBtn.textContent = "🔨";
-        banBtn.title = "Bannir cette IP";
-        banBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
-        banBtn.onclick = async () => {
-          if (msg.ip && confirm(`Bannir ${cleanPseudo} ?`)) {
-            await addDoc(bannedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
-          }
-        };
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "🗑️";
-        deleteBtn.title = "Supprimer le message";
-        deleteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
-        deleteBtn.onclick = async () => {
-          if (confirm("Supprimer ce message ?")) {
-            await deleteDoc(doc(db, "messages", docSnap.id));
-          }
-        };
-
-        adminTools.appendChild(muteBtn);
-        adminTools.appendChild(banBtn);
-        adminTools.appendChild(deleteBtn);
-        div.appendChild(adminTools);
-      }
-
-      container.appendChild(div);
-    });
-    container.scrollTop = container.scrollHeight;
+    dernieresDonneesMessages = snapshot.docs;
+    afficherMessagesHTML(dernieresDonneesMessages);
+  }, (error) => {
+    console.error("Erreur de connexion Firestore :", error);
   });
 }
