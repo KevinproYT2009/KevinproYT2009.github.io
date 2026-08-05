@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="fr">
     <head>
+        <script>
+            if (localStorage.getItem("theme") === "dark" || (!localStorage.getItem("theme") && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark-mode');
+            }
+        </script>
         <meta charset="UTF-8">
         <link rel="icon" href="lettre-g.png" type="image/png">
         <title>Gamenter - Snake</title>
@@ -37,11 +42,11 @@ En 1982, une nouvelle version nommée Nibbler a été lancée par Rock-Ola, qui 
             <li>Deviens une unité absolue et utilise ta taille pour intimider</li>
         </ul>
 
-
-        <img src="snake_a_1.png" alt="ssss">
+        <img src="snake_a_1.png" alt="ssss" class="centered-image">
 
         <a href="index.html" class="cta-button">Retour à l'accueil</a>
 
-        <script src="script.js"></script>
+        <!-- Script en mode module pour garder le compteur en direct et le thème -->
+        <script type="module" src="script.js"></script>
     </body>
 </html>
