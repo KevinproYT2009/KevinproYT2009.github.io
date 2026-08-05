@@ -39,36 +39,48 @@ const vpnKeywords = [
 async function verifierConnexion() {
     if (ipVerifiee) return;
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-
     try {
-        const res = await fetch("https://ipwho.is/", { signal: controller.signal });
-        const data = await res.json();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+        // Plan A : ipwho.is (Rapide, donne tout d'un coup)
+        const resWho = await fetch("https://ipwho.is/", { signal: controller.signal });
+        const dataWho = await resWho.json();
         clearTimeout(timeoutId);
+
+        if (!dataWho.success) throw new Error("Échec IPWhois");
+
+        userIp = dataWho.ip || "IP_Inconnue";
         
-        if (data && data.success) {
-            userIp = data.ip || "IP_Inconnue";
-            
-            if (data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.hosting)) {
-                isVPN = true;
-            }
-            
-            const connectionStr = JSON.stringify(data.connection || {}).toLowerCase();
-            if (vpnKeywords.some(kw => connectionStr.includes(kw))) {
-                isVPN = true;
-            }
+        if (dataWho.security && (dataWho.security.vpn || dataWho.security.proxy || dataWho.security.tor || dataWho.security.hosting)) {
+            isVPN = true;
+        }
+        
+        const connectionStr = JSON.stringify(dataWho.connection || {}).toLowerCase();
+        if (vpnKeywords.some(kw => connectionStr.includes(kw))) {
+            isVPN = true;
         }
     } catch (e) {
+        // Plan B : ipify (Récupère l'IP) + Proxycheck (Analyse stricte VPN)
         try {
-            const res2 = await fetch("https://ipapi.co/json/");
-            const data2 = await res2.json();
-            if (data2 && data2.ip) userIp = data2.ip;
-            const org2 = (data2.org || data2.asn || "").toLowerCase();
-            if (vpnKeywords.some(kw => org2.includes(kw))) {
+            const resIp = await fetch("https://api64.ipify.org?format=json");
+            const dataIp = await resIp.json();
+            userIp = dataIp.ip;
+
+            const resProxy = await fetch(`https://proxycheck.io/v2/${userIp}?vpn=1&asn=1`);
+            const dataProxy = await resProxy.json();
+            
+            if (dataProxy[userIp] && dataProxy[userIp].proxy === "yes") {
                 isVPN = true;
             }
-        } catch (err) {}
+            const provider = (dataProxy[userIp] && dataProxy[userIp].provider) ? dataProxy[userIp].provider.toLowerCase() : "";
+            if (vpnKeywords.some(kw => provider.includes(kw))) {
+                isVPN = true;
+            }
+        } catch (err) {
+            // Plan C : Tout est bloqué (AdBlock agressif, perte de co, etc.)
+            isVPN = "erreur_api"; 
+        }
     } finally {
         ipVerifiee = true;
     }
@@ -337,9 +349,26 @@ function afficherMessagesHTML(snapshotDocs) {
         }
         if (!cleanPseudo) cleanPseudo = msg.pseudo || "Anonyme";
 
+        // ----- AJOUT : FORMATAGE DE LA DATE ET DE L'HEURE -----
+        let dateObj = new Date(); 
+        if (msg.timestamp) {
+            // Firebase peut renvoyer un objet spécifique ou un objet Date standard
+            dateObj = typeof msg.timestamp.toDate === 'function' ? msg.timestamp.toDate() : new Date(msg.timestamp);
+        }
+        const jour = String(dateObj.getDate()).padStart(2, '0');
+        const mois = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const annee = dateObj.getFullYear();
+        const heures = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+        
+        // Affichage gris et discret [JJ/MM/AAAA HH:MM]
+        const timeString = `<span style="color:#888; font-size:0.75rem; margin-right:8px;">[${jour}/${mois}/${annee} ${heures}:${minutes}]</span>`;
+
         const contentSpan = document.createElement("span");
         const identifiant = msg.pseudoHTML || `<strong style="color: var(--accent-color);">${cleanPseudo}</strong>`;
-        contentSpan.innerHTML = `${identifiant} : ${contenu}`;
+        
+        // On injecte le timeString avant le pseudo
+        contentSpan.innerHTML = `${timeString}${identifiant} : ${contenu}`;
         div.appendChild(contentSpan);
 
         if (estAdminConnecte) {
@@ -446,10 +475,17 @@ if (btnSend && container) {
         await verifierConnexion();
       }
 
-      if (isVPN) {
+      // Si les APIs ont échoué
+      if (isVPN === "erreur_api") {
+        alert("Impossible de vérifier votre connexion. Veuillez désactiver votre bloqueur de publicité pour utiliser le chat.");
+        return;
+      }
+
+      if (isVPN === true) {
         alert("Accès refusé : L'utilisation d'un VPN ou Proxy est interdite.");
         return;
       }
+      
       if (listBanned.some(b => b.ip === userIp)) {
         alert("Accès refusé : Ton adresse IP est bannie du chat !");
         return;
@@ -481,7 +517,7 @@ if (btnSend && container) {
         pseudoBrut: pseudoSaisi,
         texte: contenuMessage,
         ip: userIp,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp() // Le timestamp est géré ici
       });
     };
 
