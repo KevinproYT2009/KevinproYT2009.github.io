@@ -2,7 +2,7 @@
 // 1. IMPORTS FIREBASE
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
@@ -44,7 +44,6 @@ async function verifierConnexion() {
             }
         }
     } catch (e) {
-        // En cas de blocage par un adblocker strict, on laisse passer pour ne pas bloquer les utilisateurs normaux
         isVPN = false;
     }
 }
@@ -465,6 +464,22 @@ onSnapshot(mutedIpsRef, (snapshot) => {
   renderAdminPanel();
 });
 
+// ==========================================
+// 6. ANTI-VEILLE / RESYNCHRONISATION TAB FOCUS
+// ==========================================
+document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible" && container) {
+        try {
+            const qSync = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
+            const snapshot = await getDocs(qSync);
+            dernieresDonneesMessages = snapshot.docs;
+            afficherMessagesHTML(dernieresDonneesMessages);
+        } catch (e) {
+            console.error("Erreur de resynchronisation :", e);
+        }
+    }
+});
+
 if (pseudoInput && adminPwdInput) {
   pseudoInput.addEventListener("input", () => {
     if (pseudoInput.value.trim().toLowerCase() === "kevin" && !estAdminConnecte) {
@@ -495,7 +510,6 @@ if (btnSend && container) {
     }
 
     if (!estAdminConnecte) {
-      // VÉRIFICATION VPN EN DIRECT AVEC L'API V3
       await verifierConnexion();
 
       if (isVPN === true) {
@@ -522,7 +536,7 @@ if (btnSend && container) {
     const file = fileInput ? fileInput.files[0] : null;
 
     // ==========================================
-    // 6. SYSTÈME ANTI-SPAM (Auto-suppression + Mute 12h)
+    // 7. SYSTÈME ANTI-SPAM (Auto-suppression + Mute 12h)
     // ==========================================
     if (!estAdminConnecte) {
         const maintenant = Date.now();
