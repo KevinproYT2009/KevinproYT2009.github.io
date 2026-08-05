@@ -1,5 +1,5 @@
 // ==========================================
-// 1. IMPORTS FIREBASE (Firestore uniquement)
+// 1. IMPORTS FIREBASE
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -21,7 +21,7 @@ const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
 
 // ==========================================
-// 2. GESTION DES IP ET DETECTION VPN (Strict)
+// 2. DETECTION IP & ANTI-VPN
 // ==========================================
 let userIp = "IP_Inconnue";
 let isVPN = false;
@@ -37,19 +37,22 @@ const vpnKeywords = [
 
 async function verifierConnexion() {
     if (ipVerifiee) return;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
     try {
-        const res = await fetch("https://ipwho.is/");
+        const res = await fetch("https://ipwho.is/", { signal: controller.signal });
         const data = await res.json();
+        clearTimeout(timeoutId);
         
         if (data && data.success) {
-            userIp = data.ip;
+            userIp = data.ip || "IP_Inconnue";
             
-            // Détection directe par les indicateurs de sécurité d'ipwho.is
             if (data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.hosting)) {
                 isVPN = true;
             }
             
-            // Vérification complémentaire par mots-clés FAI
             const connectionStr = JSON.stringify(data.connection || {}).toLowerCase();
             if (vpnKeywords.some(kw => connectionStr.includes(kw))) {
                 isVPN = true;
@@ -57,9 +60,13 @@ async function verifierConnexion() {
         }
     } catch (e) {
         try {
-            const res2 = await fetch("https://api.ipify.org?format=json");
+            const res2 = await fetch("https://ipapi.co/json/");
             const data2 = await res2.json();
             if (data2 && data2.ip) userIp = data2.ip;
+            const org2 = (data2.org || data2.asn || "").toLowerCase();
+            if (vpnKeywords.some(kw => org2.includes(kw))) {
+                isVPN = true;
+            }
         } catch (err) {}
     } finally {
         ipVerifiee = true;
@@ -73,9 +80,8 @@ let listMuted = [];
 let dernieresDonneesMessages = [];
 
 // ==========================================
-// 3. CODE SITE & JEUX (Intact)
+// 3. CODE SITE, JEUX & CAPTCHA
 // ==========================================
-
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
     const savedTheme = localStorage.getItem("theme");
@@ -176,7 +182,7 @@ contactForm.addEventListener('submit', function(e) {
 });
 
 // ==========================================
-// 4. CHAT & ADMIN (AUTO-DEMUTE & ANTI-VPN)
+// 4. CHAT ET PANNEAU ADMIN (EN DIRECT)
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
@@ -200,13 +206,21 @@ if (container) {
     container.parentNode.insertBefore(adminPanel, container);
 }
 
+// Actions de déban/démute en direct sans alert() bloquant
 window.unbanUser = async (docId) => {
-    await deleteDoc(doc(db, "banned_ips", docId));
-    alert("✅ Utilisateur débanni !");
+    try {
+        await deleteDoc(doc(db, "banned_ips", docId));
+    } catch (e) {
+        console.error("Erreur lors du débannissement :", e);
+    }
 };
+
 window.unmuteUser = async (docId) => {
-    await deleteDoc(doc(db, "muted_ips", docId));
-    alert("✅ Utilisateur démuté !");
+    try {
+        await deleteDoc(doc(db, "muted_ips", docId));
+    } catch (e) {
+        console.error("Erreur lors du démutage :", e);
+    }
 };
 
 function renderAdminPanel() {
@@ -215,9 +229,8 @@ function renderAdminPanel() {
         return;
     }
     adminPanel.style.display = "block";
-    let html = '<h3 style="color:#ff3333; margin-top:0; font-size:1.1rem; border-bottom: 1px solid #ff3333; padding-bottom:5px;">🛠️ Panneau de Modération</h3>';
+    let html = '<h3 style="color:#ff3333; margin-top:0; font-size:1.1rem; border-bottom: 1px solid #ff3333; padding-bottom:5px;">🛠️ Panneau de Modération (Temps réel)</h3>';
     
-    // Filtrage des mutes encore actifs
     const mutesActifs = listMuted.filter(m => !m.finMute || Date.now() < m.finMute);
 
     if (listBanned.length === 0 && mutesActifs.length === 0) {
@@ -235,13 +248,13 @@ function renderAdminPanel() {
     });
 
     mutesActifs.forEach(m => {
-        const tempsRestantSec = Math.ceil((m.finMute - Date.now()) / 1000);
+        const tempsRestantSec = Math.max(0, Math.ceil((m.finMute - Date.now()) / 1000));
         const minsRestantes = Math.ceil(tempsRestantSec / 60);
         
         html += `<div style="margin-bottom: 8px; font-size: 0.85rem; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
             <div>
                 🔇 <strong>${m.pseudoBrut || 'Anonyme'}</strong> <span style="color:#aaa;">(${m.ip})</span><br>
-                <i style="color:#ddd;">"${m.motif}"</i> — <span style="color:#ff9800;">Reste ~${minsRestantes} min</span>
+                <i style="color:#ddd;">"${m.motif}"</i> — <span style="color:#ff9800;">Reste ~${minsRestantes} min (${tempsRestantSec}s)</span>
             </div>
             <button onclick="window.unmuteUser('${m.id}')" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Démuter</button>
         </div>`;
@@ -250,104 +263,113 @@ function renderAdminPanel() {
     adminPanel.innerHTML = html;
 }
 
+// Rafraîchissement automatique toutes les 3 secondes pour mettre à jour les chronos
+setInterval(() => {
+    if (estAdminConnecte) {
+        renderAdminPanel();
+    }
+}, 3000);
+
 function afficherMessagesHTML(snapshotDocs) {
     if (!container) return;
     container.innerHTML = "";
     
     snapshotDocs.forEach((docSnap) => {
-      const msg = docSnap.data();
-      const div = document.createElement("div");
-      div.style.marginBottom = "10px";
-      div.style.wordBreak = "break-word";
-      div.style.display = "flex";
-      div.style.justifyContent = "space-between";
-      div.style.alignItems = "center";
-      
-      let contenu = msg.texte || "";
-      let lowerContenu = typeof contenu === 'string' ? contenu.toLowerCase() : "";
+      try {
+        const msg = docSnap.data();
+        const div = document.createElement("div");
+        div.style.marginBottom = "10px";
+        div.style.wordBreak = "break-word";
+        div.style.display = "flex";
+        div.style.justifyContent = "space-between";
+        div.style.alignItems = "center";
+        
+        let contenu = String(msg.texte || "");
+        let lowerContenu = contenu.toLowerCase();
 
-      if (contenu.startsWith('data:audio') || lowerContenu.endsWith('.mp3')) {
-          contenu = `<br><audio controls src="${contenu}" style="max-width: 100%; margin-top: 5px; height: 30px;"></audio>`;
-      } 
-      else if (contenu.startsWith('data:video') || lowerContenu.endsWith('.mp4')) {
-          contenu = `<br><video controls src="${contenu}" style="max-width: 100%; border-radius: 5px; margin-top: 5px; max-height: 200px;"></video>`;
-      }
-      else if (contenu.startsWith('data:image') || lowerContenu.endsWith('.png') || lowerContenu.endsWith('.jpg') || lowerContenu.endsWith('.jpeg') || lowerContenu.endsWith('.gif')) {
-          contenu = `<br><img src="${contenu}" alt="Image partagée" style="max-width: 100%; max-height: 200px; border-radius: 5px; margin-top: 5px;">`;
-      }
+        if (contenu.startsWith('data:audio') || lowerContenu.endsWith('.mp3')) {
+            contenu = `<br><audio controls src="${contenu}" style="max-width: 100%; margin-top: 5px; height: 30px;"></audio>`;
+        } 
+        else if (contenu.startsWith('data:video') || lowerContenu.endsWith('.mp4')) {
+            contenu = `<br><video controls src="${contenu}" style="max-width: 100%; border-radius: 5px; margin-top: 5px; max-height: 200px;"></video>`;
+        }
+        else if (contenu.startsWith('data:image') || lowerContenu.endsWith('.png') || lowerContenu.endsWith('.jpg') || lowerContenu.endsWith('.jpeg') || lowerContenu.endsWith('.gif')) {
+            contenu = `<br><img src="${contenu}" alt="Image partagée" style="max-width: 100%; max-height: 200px; border-radius: 5px; margin-top: 5px;">`;
+        }
 
-      let cleanPseudo = msg.pseudoBrut;
-      if (!cleanPseudo && msg.pseudoHTML) {
-        cleanPseudo = msg.pseudoHTML.replace(/<[^>]*>?/gm, '').replace('🛡️ ADMIN (', '').replace(')', '');
-      }
-      if (!cleanPseudo) cleanPseudo = msg.pseudo || "Anonyme";
+        let cleanPseudo = msg.pseudoBrut;
+        if (!cleanPseudo && msg.pseudoHTML) {
+          cleanPseudo = String(msg.pseudoHTML).replace(/<[^>]*>?/gm, '').replace('🛡️ ADMIN (', '').replace(')', '');
+        }
+        if (!cleanPseudo) cleanPseudo = msg.pseudo || "Anonyme";
 
-      const contentSpan = document.createElement("span");
-      const identifiant = msg.pseudoHTML || `<strong style="color: var(--accent-color);">${cleanPseudo}</strong>`;
-      contentSpan.innerHTML = `${identifiant} : ${contenu}`;
-      div.appendChild(contentSpan);
+        const contentSpan = document.createElement("span");
+        const identifiant = msg.pseudoHTML || `<strong style="color: var(--accent-color);">${cleanPseudo}</strong>`;
+        contentSpan.innerHTML = `${identifiant} : ${contenu}`;
+        div.appendChild(contentSpan);
 
-      // Outils Admin
-      if (estAdminConnecte) {
-        const adminTools = document.createElement("div");
-        adminTools.style.display = "flex";
-        adminTools.style.gap = "5px";
+        if (estAdminConnecte) {
+          const adminTools = document.createElement("div");
+          adminTools.style.display = "flex";
+          adminTools.style.gap = "5px";
 
-        let sanctionMotif = typeof msg.texte === 'string' && !msg.texte.startsWith('data:') ? msg.texte : '[Fichier Multimédia]';
+          let sanctionMotif = !contenu.startsWith('data:') ? contenu : '[Fichier Multimédia]';
 
-        // Mute temporaire (Auto-demute)
-        const muteBtn = document.createElement("button");
-        muteBtn.textContent = "🔇";
-        muteBtn.title = "Muter cet utilisateur";
-        muteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
-        muteBtn.onclick = async () => {
-          if (msg.ip) {
-            const dureeStr = prompt(`Pendant combien de minutes veux-tu muter ${cleanPseudo} ?`, "5");
-            const minutes = parseInt(dureeStr);
-            if (!isNaN(minutes) && minutes > 0) {
-              const finMute = Date.now() + (minutes * 60 * 1000);
-              await addDoc(mutedIpsRef, {
-                ip: msg.ip,
-                pseudoBrut: cleanPseudo,
-                motif: sanctionMotif,
-                finMute: finMute
-              });
-              alert(`Mute de ${minutes} min appliqué ! L'auto-demute se fera tout seul.`);
+          const muteBtn = document.createElement("button");
+          muteBtn.textContent = "🔇";
+          muteBtn.title = "Muter cet utilisateur";
+          muteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
+          muteBtn.onclick = async () => {
+            if (msg.ip) {
+              const dureeStr = prompt(`Pendant combien de minutes veux-tu muter ${cleanPseudo} ?`, "5");
+              const minutes = parseInt(dureeStr);
+              if (!isNaN(minutes) && minutes > 0) {
+                const finMute = Date.now() + (minutes * 60 * 1000);
+                await addDoc(mutedIpsRef, {
+                  ip: msg.ip,
+                  pseudoBrut: cleanPseudo,
+                  motif: sanctionMotif,
+                  finMute: finMute
+                });
+              }
             }
-          }
-        };
+          };
 
-        const banBtn = document.createElement("button");
-        banBtn.textContent = "🔨";
-        banBtn.title = "Bannir cette IP";
-        banBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
-        banBtn.onclick = async () => {
-          if (msg.ip && confirm(`Bannir définitivement ${cleanPseudo} ?`)) {
-            await addDoc(bannedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
-          }
-        };
+          const banBtn = document.createElement("button");
+          banBtn.textContent = "🔨";
+          banBtn.title = "Bannir cette IP";
+          banBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
+          banBtn.onclick = async () => {
+            if (msg.ip && confirm(`Bannir définitivement ${cleanPseudo} ?`)) {
+              await addDoc(bannedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
+            }
+          };
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "🗑️";
-        deleteBtn.title = "Supprimer le message";
-        deleteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
-        deleteBtn.onclick = async () => {
-          if (confirm("Supprimer ce message ?")) {
-            await deleteDoc(doc(db, "messages", docSnap.id));
-          }
-        };
+          const deleteBtn = document.createElement("button");
+          deleteBtn.textContent = "🗑️";
+          deleteBtn.title = "Supprimer le message";
+          deleteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
+          deleteBtn.onclick = async () => {
+            if (confirm("Supprimer ce message ?")) {
+              await deleteDoc(doc(db, "messages", docSnap.id));
+            }
+          };
 
-        adminTools.appendChild(muteBtn);
-        adminTools.appendChild(banBtn);
-        adminTools.appendChild(deleteBtn);
-        div.appendChild(adminTools);
+          adminTools.appendChild(muteBtn);
+          adminTools.appendChild(banBtn);
+          adminTools.appendChild(deleteBtn);
+          div.appendChild(adminTools);
+        }
+
+        container.appendChild(div);
+      } catch (err) {
+        console.error("Erreur d'affichage d'un message :", err);
       }
-
-      container.appendChild(div);
     });
     container.scrollTop = container.scrollHeight;
 }
 
+// Écoute des mises à jour des sanctions en direct
 onSnapshot(bannedIpsRef, (snapshot) => {
   listBanned = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAdminPanel();
@@ -387,12 +409,10 @@ if (btnSend && container) {
       }
     }
 
-    // Contrôles joueurs normaux
+    // Contrôles utilisateurs normaux
     if (!estAdminConnecte) {
       if (!ipVerifiee) {
-          btnSend.disabled = true;
-          await verifierConnexion();
-          btnSend.disabled = false;
+        await verifierConnexion();
       }
 
       if (isVPN) {
@@ -404,7 +424,6 @@ if (btnSend && container) {
         return;
       }
 
-      // Vérification Auto-demute : Mute actif seulement si finMute n'est pas encore atteinte
       const muteActif = listMuted.find(m => m.ip === userIp && (!m.finMute || Date.now() < m.finMute));
       if (muteActif) {
         const minsRestantes = Math.ceil((muteActif.finMute - Date.now()) / 60000);
