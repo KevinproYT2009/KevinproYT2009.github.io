@@ -22,78 +22,106 @@ const mutedIpsRef = collection(db, "muted_ips");
 const presenceRef = collection(db, "site_presence");
 
 // ==========================================
-// 2. DETECTION IP & ANTI-VPN
+// 2. DETECTION IP & ANTI-VPN (API V3 PROXYCHECK)
 // ==========================================
 let userIp = "IP_Inconnue";
 let isVPN = false;
-let ipVerifiee = false;
-
-const vpnKeywords = [
-    "vpn", "proxy", "hosting", "cloud", "datacenter", "digitalocean", "ovh",
-    "mullvad", "nord", "expressvpn", "proton", "vultr", "linode", "aws", 
-    "amazon", "hetzner", "cyberghost", "surfshark", "ipvanish", "tunnelbear",
-    "private internet", "pia", "choopa", "leaseweb", "colocrossing", "oracle",
-    "alibaba", "tencent", "google", "dedicenter", "quadranet", "tzulo"
-];
+const PROXYCHECK_PUBLIC_KEY = "public-s844i8-241hnq-k19j5e";
 
 async function verifierConnexion() {
-    if (ipVerifiee) return;
-    
+    isVPN = false;
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-        // Plan A : ipwho.is (Rapide, donne tout d'un coup)
-        const resWho = await fetch("https://ipwho.is/", { signal: controller.signal });
-        const dataWho = await resWho.json();
-        clearTimeout(timeoutId);
-
-        if (!dataWho.success) throw new Error("Échec IPWhois");
-
-        userIp = dataWho.ip || "IP_Inconnue";
+        const res = await fetch(`https://proxycheck.io/v3/?key=${PROXYCHECK_PUBLIC_KEY}`);
+        const json = await res.json();
         
-        if (dataWho.security && (dataWho.security.vpn || dataWho.security.proxy || dataWho.security.tor || dataWho.security.hosting)) {
-            isVPN = true;
+        if (json && json.ip) {
+            userIp = json.ip;
         }
-        
-        const connectionStr = JSON.stringify(dataWho.connection || {}).toLowerCase();
-        if (vpnKeywords.some(kw => connectionStr.includes(kw))) {
-            isVPN = true;
+
+        if (json && (json.status === "warning" || json.status === "ok") && json[json.ip] && json[json.ip].detections) {
+            if (json[json.ip].detections.anonymous === true) {
+                isVPN = true;
+            }
         }
     } catch (e) {
-        // Plan B : ipify (Récupère l'IP) + Proxycheck (Analyse stricte VPN)
-        try {
-            const resIp = await fetch("https://api64.ipify.org?format=json");
-            const dataIp = await resIp.json();
-            userIp = dataIp.ip;
-
-            const resProxy = await fetch(`https://proxycheck.io/v2/${userIp}?vpn=1&asn=1`);
-            const dataProxy = await resProxy.json();
-            
-            if (dataProxy[userIp] && dataProxy[userIp].proxy === "yes") {
-                isVPN = true;
-            }
-            const provider = (dataProxy[userIp] && dataProxy[userIp].provider) ? dataProxy[userIp].provider.toLowerCase() : "";
-            if (vpnKeywords.some(kw => provider.includes(kw))) {
-                isVPN = true;
-            }
-        } catch (err) {
-            // Plan C : Tout est bloqué (AdBlock agressif, perte de co, etc.)
-            isVPN = "erreur_api"; 
-        }
-    } finally {
-        ipVerifiee = true;
+        // En cas de blocage par un adblocker strict, on laisse passer pour ne pas bloquer les utilisateurs normaux
+        isVPN = false;
     }
 }
-
-verifierConnexion();
 
 let listBanned = [];
 let listMuted = [];
 let dernieresDonneesMessages = [];
 
 // ==========================================
-// 3. CODE SITE, JEUX, CAPTCHA & COMPTEUR RÉEL
+// 3. LISTE DES MOTS INTERDITS (MULTILANGUE)
+// ==========================================
+const motsInterdits = [
+    // --- FRANÇAIS ---
+    "merde", "putain", "connard", "connasse", "salope", "pute", "enculé", "enculée", "fdp", "fils de pute", 
+    "nique", "niquer", "bâtard", "bâtarde", "suce", "suceur", "suceuse", "gros con", "ta gueule", "tg", 
+    "pd", "pédale", "tarlouze", "chier", "couille", "couilles", "bite", "bougnoule", "nègre", "pouffiasse", 
+    "idiot", "imbécile", "crétin", "con", "conne", "zob", "branleur", "branleuse", "branlette", "foutre", 
+    "salaud", "chienne", "gouine", "enfoiré", "enfoirée", "poufiasse", "sac à merde", "clochard", "ordure", 
+    "charogne", "abruti", "abrutie", "tocard", "tocarde", "gland", "glandeur", "glandu", "faquin",
+
+    // --- ANGLAIS (ENGLISH) ---
+    "shit", "shitty", "fuck", "fucker", "fucking", "fucked", "ass", "asshole", "bitch", "bitchy", 
+    "bastard", "cunt", "dick", "dickhead", "cock", "pussy", "slut", "whore", "motherfucker", "crap", 
+    "damn", "damned", "bloody", "bollocks", "wanker", "prick", "twat", "bullshit", "sod", "bugger", 
+    "nigger", "nigga", "fag", "faggot", "retard", "stupid", "dumbass", "loser", "suck", "sucks", 
+    "jerk", "piss", "pissed", "cum", "jizz", "boobs", "tits", "porn", "sex", "anal", "orgasm", 
+    "masturbate", "blowjob", "handjob", "deepthroat", "slutty", "whorehouse", "cuntface", "shithead", 
+    "asshat", "douche", "douchebag", "scumbag", "pecker", "twink", "dyke", "tranny", "queer", "kike", 
+    "spic", "chink", "gook", "wop", "wetback", "cracker", "honky",
+
+    // --- ESPAGNOL (SPANISH) ---
+    "mierda", "puta", "puto", "cabrón", "cabron", "gilipollas", "idiota", "estúpido", "estupido", 
+    "imbécil", "imbecil", "pendejo", "pendeja", "chinga", "chingar", "chingada", "coño", "cono", 
+    "carajo", "maricón", "maricon", "marica", "zorra", "culo", "pollas", "polla", "huevón", "huevon", 
+    "mamón", "mamon", "capullo", "boludo", "boluda", "concha", "verga", "pija", "ojete", "orto", 
+    "chupada", "mamada", "putita", "putito", "putón", "puton", "culero", "culera", "pinche", 
+    "chingón", "chingon", "joto", "cagada", "cagar", "cagado", "tarado", "tarada", "retrasado", 
+    "retrasada", "mongolo", "mongola",
+
+    // --- ALLEMAND (GERMAN) ---
+    "scheisse", "scheiße", "arschloch", "arsch", "fotze", "schlampe", "hure", "wichser", "verdammt", 
+    "Hurensohn", "Spast", "spasti", "schwachkopf", "vollidiot", "nutte", "sau", "schwein", "miststück", 
+    "kacke", "verarscht", "pisser", "sackgesicht", "arschgeige", "wixxer", "drecksau", "drecksack", 
+    "schlappschwanz", "arschficker", "hodensack", "möse", "titten", "schwuchtel", "kanacke", "neger", 
+    "judensau", "dummkopf",
+
+    // --- ITALIEN (ITALIAN) ---
+    "merda", "stronzo", "stronza", "cazzo", "vaffanculo", "culo", "fottiti", "puttana", "troia", 
+    "coglione", "cogliona", "bastardo", "bastarda", "frocio", "finocchio", "minchia", "pirla", 
+    "fottere", "porco", "porca", "vacca", "bocchinaro", "pompino", "pezzo di merda", "testa di cazzo", 
+    "rompiballe", "sfigato", "sfigata", "cretino", "cretina", "imbecille", "cornuto", "cornuta", 
+    "schifoso", "schifosa", "zoccola", "scemo", "scema",
+
+    // --- PORTUGAIS (PORTUGUESE) ---
+    "merda", "caralho", "puta", "puto", "filha da puta", "filho da puta", "foda-se", "foder", 
+    "vai tomar no cu", "buceta", "punheta", "viado", "corno", "corna", "otário", "otario", 
+    "imbecil", "retardado", "retardada", "bosta", "cacete", "porra", "desgraçado", "desgraçada", 
+    "rapariga", "quenga", "vagabunda", "pau", "piroca", "boiola", "bicha", "escroto", "escrota", "babaca",
+
+    // --- NÉERLANDAIS (DUTCH) ---
+    "kut", "shit", "godverdomme", "klootzak", "hufter", "hoer", "slet", "mokkel", "tering", 
+    "tyfus", "kanker", "eikel", "lul", "sukkel", "mongool", "homo", "pot", "flikker", "pedo", 
+    "pedofiel", "teringlijer", "tyfustelijer", "lulhannes", "stoephoer", "kutkop", "kakkerlak",
+
+    // --- RUSSE (RUSSIAN - TRANSLITTÉRÉ) ---
+    "blyat", "bliat", "blyad", "suka", "pizda", "pizdat", "nahuy", "nahui", "ebat", "ebal", 
+    "yeban", "eblan", "mudak", "mudaq", "chmo", "gavno", "govno", "pidor", "pidaras", "shluha", 
+    "shluva", "sukin syn", "zasranets", "huj", "hui", "mudila", "zalupa", "bljad",
+
+    // --- ARABE (ARABIC - TRANSLITTÉRÉ) ---
+    "kosom", "ksay", "sharmuta", "sharmouta", "kahba", "kahbe", "zamel", "zebi", "zebb", 
+    "qahba", "ibn al kalb", "kalb", "himar", "khara", "sharmoota", "ahbal", "hmar", "wahsh", 
+    "manayik", "menayik", "sharmout", "kos", "ks", "qahb"
+];
+
+// ==========================================
+// 4. CODE SITE, JEUX, CAPTCHA & COMPTEUR RÉEL
 // ==========================================
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
@@ -230,7 +258,7 @@ if (contactForm) {
 }
 
 // ==========================================
-// 4. CHAT ET PANNEAU ADMIN (EN DIRECT)
+// 5. CHAT ET PANNEAU ADMIN (EN DIRECT)
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
@@ -349,10 +377,8 @@ function afficherMessagesHTML(snapshotDocs) {
         }
         if (!cleanPseudo) cleanPseudo = msg.pseudo || "Anonyme";
 
-        // ----- AJOUT : FORMATAGE DE LA DATE ET DE L'HEURE -----
         let dateObj = new Date(); 
         if (msg.timestamp) {
-            // Firebase peut renvoyer un objet spécifique ou un objet Date standard
             dateObj = typeof msg.timestamp.toDate === 'function' ? msg.timestamp.toDate() : new Date(msg.timestamp);
         }
         const jour = String(dateObj.getDate()).padStart(2, '0');
@@ -361,13 +387,11 @@ function afficherMessagesHTML(snapshotDocs) {
         const heures = String(dateObj.getHours()).padStart(2, '0');
         const minutes = String(dateObj.getMinutes()).padStart(2, '0');
         
-        // Affichage gris et discret [JJ/MM/AAAA HH:MM]
         const timeString = `<span style="color:#888; font-size:0.75rem; margin-right:8px;">[${jour}/${mois}/${annee} ${heures}:${minutes}]</span>`;
 
         const contentSpan = document.createElement("span");
         const identifiant = msg.pseudoHTML || `<strong style="color: var(--accent-color);">${cleanPseudo}</strong>`;
         
-        // On injecte le timeString avant le pseudo
         contentSpan.innerHTML = `${timeString}${identifiant} : ${contenu}`;
         div.appendChild(contentSpan);
 
@@ -471,15 +495,8 @@ if (btnSend && container) {
     }
 
     if (!estAdminConnecte) {
-      if (!ipVerifiee) {
-        await verifierConnexion();
-      }
-
-      // Si les APIs ont échoué
-      if (isVPN === "erreur_api") {
-        alert("Impossible de vérifier votre connexion. Veuillez désactiver votre bloqueur de publicité pour utiliser le chat.");
-        return;
-      }
+      // VÉRIFICATION VPN EN DIRECT AVEC L'API V3
+      await verifierConnexion();
 
       if (isVPN === true) {
         alert("Accès refusé : L'utilisation d'un VPN ou Proxy est interdite.");
@@ -501,8 +518,51 @@ if (btnSend && container) {
 
     const texteInput = document.getElementById("chat-message");
     const fileInput = document.getElementById("chat-file");
-    const texte = texteInput.value.trim();
+    let texte = texteInput.value.trim();
     const file = fileInput ? fileInput.files[0] : null;
+
+    // ==========================================
+    // 6. SYSTÈME ANTI-SPAM (Auto-suppression + Mute 12h)
+    // ==========================================
+    if (!estAdminConnecte) {
+        const maintenant = Date.now();
+        const estSpam = dernieresDonneesMessages.some(docSnap => {
+            const m = docSnap.data();
+            if (m.ip === userIp) {
+                let msgTime = maintenant;
+                if (m.timestamp) {
+                    msgTime = typeof m.timestamp.toDate === 'function' ? m.timestamp.toDate().getTime() : maintenant;
+                }
+                if ((maintenant - msgTime < 3000) || (texte !== "" && m.texte === texte)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        if (estSpam) {
+            const finMute = maintenant + (12 * 60 * 60 * 1000); 
+            await addDoc(mutedIpsRef, {
+                ip: userIp,
+                pseudoBrut: pseudoSaisi,
+                motif: "Spam détecté (Envoi trop rapide / Double message)",
+                finMute: finMute
+            });
+            alert("⚠️ Anti-spam détecté : Envoi trop rapide ou message en double. Message supprimé et mute de 12 heures appliqué !");
+            if (texteInput) texteInput.value = "";
+            if (fileInput) fileInput.value = "";
+            return;
+        }
+    }
+
+    // --- CENSURE AUTOMATIQUE PAR ÉTOILES ---
+    if (texte !== "") {
+        motsInterdits.forEach(mot => {
+            const regex = new RegExp(`\\b${mot}\\b`, 'gi');
+            const etoiles = "*".repeat(mot.length);
+            texte = texte.replace(regex, etoiles);
+        });
+    }
 
     let pseudoFinal = pseudoSaisi;
     if (estAdminConnecte && pseudoSaisi.toLowerCase() === "kevin") {
@@ -517,7 +577,7 @@ if (btnSend && container) {
         pseudoBrut: pseudoSaisi,
         texte: contenuMessage,
         ip: userIp,
-        timestamp: serverTimestamp() // Le timestamp est géré ici
+        timestamp: serverTimestamp()
       });
     };
 
