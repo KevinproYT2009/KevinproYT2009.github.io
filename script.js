@@ -21,7 +21,7 @@ const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
 
 // ==========================================
-// 2. GESTION DES IP ET DETECTION VPN (Sécurisée)
+// 2. GESTION DES IP ET DETECTION VPN (Strict)
 // ==========================================
 let userIp = "IP_Inconnue";
 let isVPN = false;
@@ -40,16 +40,22 @@ async function verifierConnexion() {
     try {
         const res = await fetch("https://ipwho.is/");
         const data = await res.json();
-        if (data && data.ip) userIp = data.ip;
         
-        const isp = (data.connection && data.connection.isp ? data.connection.isp : "").toLowerCase();
-        const org = (data.connection && data.connection.org ? data.connection.org : "").toLowerCase();
-        
-        if (vpnKeywords.some(kw => isp.includes(kw) || org.includes(kw))) {
-            isVPN = true;
+        if (data && data.success) {
+            userIp = data.ip;
+            
+            // Détection directe par les indicateurs de sécurité d'ipwho.is
+            if (data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.hosting)) {
+                isVPN = true;
+            }
+            
+            // Vérification complémentaire par mots-clés FAI
+            const connectionStr = JSON.stringify(data.connection || {}).toLowerCase();
+            if (vpnKeywords.some(kw => connectionStr.includes(kw))) {
+                isVPN = true;
+            }
         }
     } catch (e) {
-        // Secours si ipwho.is est bloqué par un AdBlocker
         try {
             const res2 = await fetch("https://api.ipify.org?format=json");
             const data2 = await res2.json();
@@ -64,10 +70,10 @@ verifierConnexion();
 
 let listBanned = [];
 let listMuted = [];
-let dernieresDonneesMessages = []; // Cache local pour re-rendre en cas de changement de statut Admin
+let dernieresDonneesMessages = [];
 
 // ==========================================
-// 3. CODE SITE & JEUX
+// 3. CODE SITE & JEUX (Intact)
 // ==========================================
 
 const toggleBtn = document.getElementById('toggleBtn');
@@ -170,7 +176,7 @@ contactForm.addEventListener('submit', function(e) {
 });
 
 // ==========================================
-// 4. LOGIQUE CHAT & PANNEAU ADMIN
+// 4. CHAT & ADMIN (AUTO-DEMUTE & ANTI-VPN)
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
@@ -211,7 +217,10 @@ function renderAdminPanel() {
     adminPanel.style.display = "block";
     let html = '<h3 style="color:#ff3333; margin-top:0; font-size:1.1rem; border-bottom: 1px solid #ff3333; padding-bottom:5px;">🛠️ Panneau de Modération</h3>';
     
-    if (listBanned.length === 0 && listMuted.length === 0) {
+    // Filtrage des mutes encore actifs
+    const mutesActifs = listMuted.filter(m => !m.finMute || Date.now() < m.finMute);
+
+    if (listBanned.length === 0 && mutesActifs.length === 0) {
         html += "<p style='color:gray; font-size:0.9rem;'>Aucune sanction active.</p>";
     }
 
@@ -225,11 +234,14 @@ function renderAdminPanel() {
         </div>`;
     });
 
-    listMuted.forEach(m => {
+    mutesActifs.forEach(m => {
+        const tempsRestantSec = Math.ceil((m.finMute - Date.now()) / 1000);
+        const minsRestantes = Math.ceil(tempsRestantSec / 60);
+        
         html += `<div style="margin-bottom: 8px; font-size: 0.85rem; display:flex; justify-content:space-between; align-items:center; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px;">
             <div>
                 🔇 <strong>${m.pseudoBrut || 'Anonyme'}</strong> <span style="color:#aaa;">(${m.ip})</span><br>
-                <i style="color:#ddd;">"${m.motif}"</i>
+                <i style="color:#ddd;">"${m.motif}"</i> — <span style="color:#ff9800;">Reste ~${minsRestantes} min</span>
             </div>
             <button onclick="window.unmuteUser('${m.id}')" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Démuter</button>
         </div>`;
@@ -238,7 +250,6 @@ function renderAdminPanel() {
     adminPanel.innerHTML = html;
 }
 
-// Fonction de rendu du Fil de discussion
 function afficherMessagesHTML(snapshotDocs) {
     if (!container) return;
     container.innerHTML = "";
@@ -276,7 +287,7 @@ function afficherMessagesHTML(snapshotDocs) {
       contentSpan.innerHTML = `${identifiant} : ${contenu}`;
       div.appendChild(contentSpan);
 
-      // Outils de modération Admin
+      // Outils Admin
       if (estAdminConnecte) {
         const adminTools = document.createElement("div");
         adminTools.style.display = "flex";
@@ -284,13 +295,25 @@ function afficherMessagesHTML(snapshotDocs) {
 
         let sanctionMotif = typeof msg.texte === 'string' && !msg.texte.startsWith('data:') ? msg.texte : '[Fichier Multimédia]';
 
+        // Mute temporaire (Auto-demute)
         const muteBtn = document.createElement("button");
         muteBtn.textContent = "🔇";
-        muteBtn.title = "Muter cette IP indéfiniment";
+        muteBtn.title = "Muter cet utilisateur";
         muteBtn.style.cssText = "background:none; border:none; cursor:pointer; font-size:0.9rem;";
         muteBtn.onclick = async () => {
-          if (msg.ip && confirm(`Rendre muet ${cleanPseudo} ?`)) {
-            await addDoc(mutedIpsRef, { ip: msg.ip, pseudoBrut: cleanPseudo, motif: sanctionMotif });
+          if (msg.ip) {
+            const dureeStr = prompt(`Pendant combien de minutes veux-tu muter ${cleanPseudo} ?`, "5");
+            const minutes = parseInt(dureeStr);
+            if (!isNaN(minutes) && minutes > 0) {
+              const finMute = Date.now() + (minutes * 60 * 1000);
+              await addDoc(mutedIpsRef, {
+                ip: msg.ip,
+                pseudoBrut: cleanPseudo,
+                motif: sanctionMotif,
+                finMute: finMute
+              });
+              alert(`Mute de ${minutes} min appliqué ! L'auto-demute se fera tout seul.`);
+            }
           }
         };
 
@@ -357,13 +380,14 @@ if (btnSend && container) {
         adminPwdInput.style.display = "none";
         alert("🛡️ Connecté en tant qu'Administrateur !");
         renderAdminPanel();
-        afficherMessagesHTML(dernieresDonneesMessages); // Rafraîchit les messages pour afficher les boutons d'admin
+        afficherMessagesHTML(dernieresDonneesMessages);
       } else {
         alert("Mot de passe Admin incorrect !");
         return;
       }
     }
 
+    // Contrôles joueurs normaux
     if (!estAdminConnecte) {
       if (!ipVerifiee) {
           btnSend.disabled = true;
@@ -372,15 +396,19 @@ if (btnSend && container) {
       }
 
       if (isVPN) {
-        alert("Accès refusé : L'utilisation d'un VPN ou Proxy est interdite sur le chat.");
+        alert("Accès refusé : L'utilisation d'un VPN ou Proxy est interdite.");
         return;
       }
       if (listBanned.some(b => b.ip === userIp)) {
         alert("Accès refusé : Ton adresse IP est bannie du chat !");
         return;
       }
-      if (listMuted.some(m => m.ip === userIp)) {
-        alert("Action impossible : Tu es actuellement muet.");
+
+      // Vérification Auto-demute : Mute actif seulement si finMute n'est pas encore atteinte
+      const muteActif = listMuted.find(m => m.ip === userIp && (!m.finMute || Date.now() < m.finMute));
+      if (muteActif) {
+        const minsRestantes = Math.ceil((muteActif.finMute - Date.now()) / 60000);
+        alert(`Action impossible : Tu es muet pour encore ${minsRestantes} minute(s).`);
         return;
       }
     }
@@ -431,12 +459,11 @@ if (btnSend && container) {
     }
   });
 
-  // Listener Firestore Realtime pour les messages
   const q = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
   onSnapshot(q, (snapshot) => {
     dernieresDonneesMessages = snapshot.docs;
     afficherMessagesHTML(dernieresDonneesMessages);
   }, (error) => {
-    console.error("Erreur de connexion Firestore :", error);
+    console.error("Erreur Firestore :", error);
   });
 }
