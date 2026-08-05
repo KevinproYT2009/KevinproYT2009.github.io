@@ -1,5 +1,28 @@
-// Mode sombre
+// ==========================================
+// 1. IMPORTS FIREBASE (Doit toujours être en haut)
+// ==========================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
+  authDomain: "gamenter-chat.firebaseapp.com",
+  projectId: "gamenter-chat",
+  storageBucket: "gamenter-chat.firebasestorage.app",
+  messagingSenderId: "136972170017",
+  appId: "1:136972170017:web:3aa57e41907882e1650460"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const messagesRef = collection(db, "messages");
+
+
+// ==========================================
+// 2. TON CODE EXISTANT (Intact)
+// ==========================================
+
+// Mode sombre
 const toggleBtn = document.getElementById('toggleBtn');
 
 function applyTheme() {
@@ -82,21 +105,14 @@ const liveElement = document.getElementById('nb-live');
 let nbActuel = 15; // Nombre de départ
 
 function actualiserJoueurs() {
-    // 1. Calculer une variation aléatoire (entre -3 et +3 joueurs)
     const variation = Math.floor(Math.random() * 7) - 3;
     nbActuel += variation;
 
-    // 2. Sécurité pour ne pas descendre en dessous de 5 ou trop monter
     if (nbActuel < 5) nbActuel = 5;
     if (nbActuel > 40) nbActuel = 35;
 
-    // 3. Mettre à jour l'affichage
     liveElement.textContent = nbActuel;
-
-    // 4. Définir le prochain délai aléatoire (entre 3 et 10 secondes)
     const prochainDelai = (Math.floor(Math.random() * 8) + 3) * 1000;
-
-    // 5. Relancer la fonction après ce délai (récursivité avec setTimeout)
     setTimeout(actualiserJoueurs, prochainDelai);
 }
 
@@ -123,3 +139,50 @@ contactForm.addEventListener('submit', function(e) {
         confirmation.classList.remove('hidden');
     }, 500); 
 });
+
+
+// ==========================================
+// 6. NOUVEAU : LOGIQUE DU CHAT GLOBAL
+// ==========================================
+const btnSend = document.getElementById("chat-send");
+const container = document.getElementById("messages-container");
+
+if (btnSend && container) {
+  // Envoyer un message
+  btnSend.addEventListener("click", async () => {
+    const pseudo = document.getElementById("chat-pseudo").value.trim() || "Anonyme";
+    const texte = document.getElementById("chat-message").value.trim();
+    
+    if (texte !== "") {
+      document.getElementById("chat-message").value = ""; // On vide la case
+      await addDoc(messagesRef, {
+        pseudo: pseudo,
+        texte: texte,
+        timestamp: serverTimestamp()
+      });
+    }
+  });
+
+  // Valider avec la touche Entrée
+  document.getElementById("chat-message").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      btnSend.click();
+    }
+  });
+
+  // Lire les messages en temps réel
+  const q = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
+  onSnapshot(q, (snapshot) => {
+    container.innerHTML = ""; 
+    snapshot.forEach((doc) => {
+      const msg = doc.data();
+      const div = document.createElement("div");
+      div.style.marginBottom = "8px";
+      div.style.wordBreak = "break-word";
+      div.innerHTML = `<strong style="color: var(--accent-color);">${msg.pseudo}</strong> : ${msg.texte}`;
+      container.appendChild(div);
+    });
+    // Scroll automatiquement tout en bas
+    container.scrollTop = container.scrollHeight;
+  });
+}
