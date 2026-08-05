@@ -2,7 +2,7 @@
 // 1. IMPORTS FIREBASE
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
@@ -19,6 +19,7 @@ const db = getFirestore(app);
 const messagesRef = collection(db, "messages");
 const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
+const presenceRef = collection(db, "site_presence");
 
 // ==========================================
 // 2. DETECTION IP & ANTI-VPN
@@ -80,7 +81,7 @@ let listMuted = [];
 let dernieresDonneesMessages = [];
 
 // ==========================================
-// 3. CODE SITE, JEUX & CAPTCHA
+// 3. CODE SITE, JEUX, CAPTCHA & COMPTEUR RÉEL
 // ==========================================
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
@@ -88,8 +89,10 @@ function applyTheme() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
         document.body.classList.add('dark-mode');
+        document.documentElement.classList.add('dark-mode');
     } else {
         document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark-mode');
     }
 }
 applyTheme();
@@ -97,7 +100,9 @@ applyTheme();
 if (toggleBtn) {
     toggleBtn.addEventListener('click', () => {
         document.body.classList.toggle('dark-mode');
-        localStorage.setItem("theme", document.body.classList.contains('dark-mode') ? "dark" : "light");
+        document.documentElement.classList.toggle('dark-mode');
+        const estSombre = document.body.classList.contains('dark-mode');
+        localStorage.setItem("theme", estSombre ? "dark" : "light");
     });
 }
 
@@ -147,39 +152,70 @@ function genererCalcul() {
     const num1 = Math.floor(Math.random() * 10) + 1; 
     const num2 = Math.floor(Math.random() * 10) + 1;
     solutionAttendue = num1 + num2;
-    questionLabel.textContent = `Combien font ${num1} + ${num2} ?`;
+    if (questionLabel) {
+        questionLabel.textContent = `Combien font ${num1} + ${num2} ?`;
+    }
 }
 
+// Compteur de joueurs réel via Firestore
 const liveElement = document.getElementById('nb-live');
-let nbActuel = 15;
-function actualiserJoueurs() {
-    const variation = Math.floor(Math.random() * 7) - 3;
-    nbActuel += variation;
-    if (nbActuel < 5) nbActuel = 5;
-    if (nbActuel > 40) nbActuel = 35;
-    liveElement.textContent = nbActuel;
-    setTimeout(actualiserJoueurs, (Math.floor(Math.random() * 8) + 3) * 1000);
+const sessionId = "user_" + Math.random().toString(36).substring(2, 9);
+
+async function battementDeCoeur() {
+    try {
+        await setDoc(doc(presenceRef, sessionId), {
+            dernierSignal: Date.now()
+        });
+    } catch (e) {
+        console.error("Erreur de présence :", e);
+    }
 }
+
+battementDeCoeur();
+setInterval(battementDeCoeur, 15000);
+
+window.addEventListener("beforeunload", () => {
+    deleteDoc(doc(presenceRef, sessionId)).catch(() => {});
+});
+
+onSnapshot(presenceRef, (snapshot) => {
+    const maintenant = Date.now();
+    let actifsCount = 0;
+    
+    snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.dernierSignal && (maintenant - data.dernierSignal < 35000)) {
+            actifsCount++;
+        }
+    });
+
+    if (actifsCount < 1) actifsCount = 1;
+
+    if (liveElement) {
+        liveElement.textContent = actifsCount;
+    }
+});
 
 window.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     genererCalcul();
-    actualiserJoueurs();
 });
 
-contactForm.addEventListener('submit', function(e) {
-    if (parseInt(captchaReponse.value) !== solutionAttendue) {
-        e.preventDefault(); 
-        alert("Réponse incorrecte au calcul.");
-        genererCalcul();
-        captchaReponse.value = "";
-        return;
-    }
-    setTimeout(() => {
-        contactForm.classList.add('hidden');
-        confirmation.classList.remove('hidden');
-    }, 500); 
-});
+if (contactForm) {
+    contactForm.addEventListener('submit', function(e) {
+        if (parseInt(captchaReponse.value) !== solutionAttendue) {
+            e.preventDefault(); 
+            alert("Réponse incorrecte au calcul.");
+            genererCalcul();
+            captchaReponse.value = "";
+            return;
+        }
+        setTimeout(() => {
+            contactForm.classList.add('hidden');
+            confirmation.classList.remove('hidden');
+        }, 500); 
+    });
+}
 
 // ==========================================
 // 4. CHAT ET PANNEAU ADMIN (EN DIRECT)
@@ -206,7 +242,6 @@ if (container) {
     container.parentNode.insertBefore(adminPanel, container);
 }
 
-// Actions de déban/démute en direct sans alert() bloquant
 window.unbanUser = async (docId) => {
     try {
         await deleteDoc(doc(db, "banned_ips", docId));
@@ -263,7 +298,6 @@ function renderAdminPanel() {
     adminPanel.innerHTML = html;
 }
 
-// Rafraîchissement automatique toutes les 3 secondes pour mettre à jour les chronos
 setInterval(() => {
     if (estAdminConnecte) {
         renderAdminPanel();
@@ -369,7 +403,6 @@ function afficherMessagesHTML(snapshotDocs) {
     container.scrollTop = container.scrollHeight;
 }
 
-// Écoute des mises à jour des sanctions en direct
 onSnapshot(bannedIpsRef, (snapshot) => {
   listBanned = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   renderAdminPanel();
@@ -394,7 +427,6 @@ if (btnSend && container) {
     let pseudoSaisi = pseudoInput ? pseudoInput.value.trim() : "Anonyme";
     if (pseudoSaisi === "") pseudoSaisi = "Anonyme";
     
-    // Connexion Admin
     if (pseudoSaisi.toLowerCase() === "kevin" && !estAdminConnecte) {
       const mdp = adminPwdInput ? adminPwdInput.value : "";
       if (mdp === "Kevin#20091202") {
@@ -409,7 +441,6 @@ if (btnSend && container) {
       }
     }
 
-    // Contrôles utilisateurs normaux
     if (!estAdminConnecte) {
       if (!ipVerifiee) {
         await verifierConnexion();
@@ -472,11 +503,14 @@ if (btnSend && container) {
     }
   });
 
-  document.getElementById("chat-message").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      btnSend.click();
-    }
-  });
+  const chatMsgInput = document.getElementById("chat-message");
+  if (chatMsgInput) {
+      chatMsgInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          btnSend.click();
+        }
+      });
+  }
 
   const q = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
   onSnapshot(q, (snapshot) => {

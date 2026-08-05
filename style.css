@@ -14,14 +14,14 @@ html {
 }
 
 /* --- MODE SOMBRE (DARK MODE) --- */
-body.dark-mode {
+body.dark-mode, html.dark-mode, html.dark-mode body {
     --bg-color: #1a1a2e;
     --text-color: #e0e0e0;
     --card-bg: #111126;
     --border-color: #2a2a45;
 }
 
-body.dark-mode .toggle {
+body.dark-mode .toggle, html.dark-mode .toggle {
     filter: invert(100%);
 }
 
@@ -33,7 +33,7 @@ body {
     transition: all 0.3s ease;
 }
 
-/* --- EN-TÊTE (HEADER) - CORRECTION FINALE --- */
+/* --- EN-TÊTE (HEADER) --- */
 header {
     width: 100%;
     display: flex;
@@ -48,7 +48,6 @@ header {
     z-index: 100;
 }
 
-/* On force la largeur des zones pour que le menu reste au milieu */
 .logo-zone { 
     flex: 1; 
     display: flex;
@@ -71,7 +70,7 @@ header {
     flex: 1; 
     justify-content: center; 
     align-items: center; 
-    gap: 35px; /* ESPACE ENTRE JEUX, SUPPORT ET PARAMÈTRES */
+    gap: 35px;
 }
 
 .menu-zone a { 
@@ -143,7 +142,7 @@ main { display: flex; flex-direction: column; align-items: center; gap: 50px; pa
     border: 1px solid var(--border-color);
 }
 
-body.dark-mode .settings-box {
+body.dark-mode .settings-box, html.dark-mode .settings-box {
     background-color: #0d0d1f;
     border-color: #2a2a45;
 }
@@ -216,13 +215,12 @@ body.dark-mode .settings-box {
 @media (max-width: 900px) {
     header { padding: 10px 15px; }
     .menu-zone { gap: 15px; }
-    .logo-link h1 { display: none; } /* On cache le nom du site sur petit écran */
+    .logo-link h1 { display: none; }
 }
 
 ul li {
     margin-bottom: 2.5em;  
 }
-
 
 .square-icon-link {
     width: 100px;
@@ -238,13 +236,11 @@ ul li {
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-
 .square-icon-link:hover {
     transform: translateY(-6px);
     border-color: var(--accent-color);
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
 }
-
 
 .square-icon-link img {
     width: 60%;
@@ -287,6 +283,7 @@ body > ul {
     flex-direction: column;
     align-items: center;
 }
+
 #chat-global {
   background-color: #1e1e1e;
   color: white;
@@ -295,13 +292,13 @@ body > ul {
   padding: 15px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.3);
   font-family: Arial, sans-serif;
-  margin: 20px auto; /* Pour centrer le chat */
+  margin: 20px auto;
 }
 
 #chat-global h3 {
   margin-top: 0;
   text-align: center;
-  color: #00ffcc; /* Une couleur style gaming */
+  color: #00ffcc;
 }
 
 #messages-container {
