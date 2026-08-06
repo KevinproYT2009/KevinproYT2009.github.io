@@ -3,7 +3,7 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDoc, getDocs, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
@@ -17,12 +17,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
 const messagesRef = collection(db, "messages");
 const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
 const presenceRef = collection(db, "site_presence");
-const usersRef = collection(db, "users"); // Collection pour stocker les profils et pseudos uniques
+const usersRef = collection(db, "users"); 
 
 // ==========================================
 // 2. GESTION DES COMPTES & AUTHENTIFICATION
@@ -36,12 +37,40 @@ const pseudoInputAuth = document.getElementById("auth-pseudo");
 const btnRegister = document.getElementById("btn-register");
 const btnLogin = document.getElementById("btn-login");
 const btnLogout = document.getElementById("btn-logout");
+const btnGoogleLogin = document.getElementById("btn-google-login");
+
 const userLoggedOutDiv = document.getElementById("user-logged-out");
 const userLoggedInDiv = document.getElementById("user-logged-in");
 const profilePseudoSpan = document.getElementById("profile-pseudo");
 const profileEmailSpan = document.getElementById("profile-email");
 
-// Inscription
+// Connexion Google
+if (btnGoogleLogin) {
+    btnGoogleLogin.addEventListener("click", async () => {
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            const user = result.user;
+
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (!userDoc.exists()) {
+                let pseudoBase = user.displayName || "Gamer_" + Math.floor(Math.random() * 1000);
+                
+                await setDoc(userDocRef, {
+                    email: user.email,
+                    pseudo: pseudoBase,
+                    totalSeconds: 0
+                });
+            }
+            alert("Connecté avec Google avec succès !");
+        } catch (error) {
+            alert("Erreur de connexion Google : " + error.message);
+        }
+    });
+}
+
+// Inscription classique
 if (btnRegister) {
     btnRegister.addEventListener("click", async () => {
         const email = emailInput.value.trim();
@@ -54,7 +83,6 @@ if (btnRegister) {
         }
 
         try {
-            // Vérifier si le pseudo est déjà pris
             const qPseudo = query(usersRef);
             const querySnapshot = await getDocs(qPseudo);
             let pseudoPris = false;
@@ -69,11 +97,9 @@ if (btnRegister) {
                 return;
             }
 
-            // Créer le compte Firebase Auth
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Enregistrer le profil dans Firestore avec 0 secondes de temps total de base
             await setDoc(doc(db, "users", user.uid), {
                 email: email,
                 pseudo: pseudo,
@@ -87,7 +113,7 @@ if (btnRegister) {
     });
 }
 
-// Connexion
+// Connexion classique
 if (btnLogin) {
     btnLogin.addEventListener("click", async () => {
         const email = emailInput.value.trim();
@@ -119,26 +145,28 @@ if (btnLogout) {
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
-        userLoggedOutDiv.classList.add("hidden");
-        userLoggedInDiv.classList.remove("hidden");
-        profileEmailSpan.textContent = user.email;
+        if (userLoggedOutDiv) userLoggedOutDiv.classList.add("hidden");
+        if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
+        if (profileEmailSpan) profileEmailSpan.textContent = user.email;
 
-        // Récupérer le pseudo unique et le temps total depuis Firestore
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
             userPseudo = userDoc.data().pseudo || "Anonyme";
             totalSeconds = userDoc.data().totalSeconds || 0;
-            profilePseudoSpan.textContent = userPseudo;
+            if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+        } else {
+            userPseudo = user.displayName || "Anonyme";
+            totalSeconds = 0;
+            if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
         }
     } else {
-        userLoggedInDiv.classList.add("hidden");
-        userLoggedOutDiv.classList.remove("hidden");
+        if (userLoggedInDiv) userLoggedInDiv.classList.add("hidden");
+        if (userLoggedOutDiv) userLoggedOutDiv.classList.remove("hidden");
         userPseudo = "Anonyme";
         totalSeconds = 0;
     }
 });
-
 
 // ==========================================
 // 3. DETECTION IP & ANTI-VPN (API V3 PROXYCHECK)
@@ -179,67 +207,13 @@ let dernieresDonneesMessages = [];
 // 4. LISTE DES MOTS INTERDITS (MULTILANGUE)
 // ==========================================
 const motsInterdits = [
-    // --- FRANÇAIS ---
     "merde", "putain", "connard", "connasse", "salope", "pute", "enculé", "enculée", "fdp", "fils de pute", 
     "nique", "niquer", "bâtard", "bâtarde", "suce", "suceur", "suceuse", "gros con", "ta gueule", "tg", 
     "pd", "pédale", "tarlouze", "chier", "couille", "couilles", "bite", "bougnoule", "nègre", "pouffiasse", 
     "idiot", "imbécile", "crétin", "con", "conne", "zob", "branleur", "branleuse", "branlette", "foutre", 
     "salaud", "chienne", "gouine", "enfoiré", "enfoirée", "poufiasse", "sac à merde", "clochard", "ordure", 
     "charogne", "abruti", "abrutie", "tocard", "tocarde", "gland", "glandeur", "glandu", "faquin",
-
-    // --- ANGLAIS (ENGLISH) ---
-    "shit", "shitty", "fuck", "fucker", "fucking", "fucked", "ass", "asshole", "bitch", "bitchy", 
-    "bastard", "cunt", "dick", "dickhead", "cock", "pussy", "slut", "whore", "motherfucker", "crap", 
-    "damn", "damned", "bloody", "bollocks", "wanker", "prick", "twat", "bullshit", "sod", "bugger", 
-    "nigger", "nigga", "fag", "faggot", "retard", "stupid", "dumbass", "loser", "suck", "sucks", 
-    "jerk", "piss", "pissed", "cum", "jizz", "boobs", "tits", "porn", "sex", "anal", "orgasm", 
-    "masturbate", "blowjob", "handjob", "deepthroat", "slutty", "whorehouse", "cuntface", "shithead", 
-    "asshat", "douche", "douchebag", "scumbag", "pecker", "twink", "dyke", "tranny", "queer", "kike", 
-    "spic", "chink", "gook", "wop", "wetback", "cracker", "honky",
-
-    // --- ESPAGNOL (SPANISH) ---
-    "mierda", "puta", "puto", "cabrón", "cabron", "gilipollas", "idiota", "estúpido", "estupido", 
-    "imbécil", "imbecil", "pendejo", "pendeja", "chinga", "chingar", "chingada", "coño", "cono", 
-    "carajo", "maricón", "maricon", "marica", "zorra", "culo", "pollas", "polla", "huevón", "huevon", 
-    "mamón", "mamon", "capullo", "boludo", "boluda", "concha", "verga", "pija", "ojete", "orto", 
-    "chupada", "mamada", "putita", "putito", "putón", "puton", "culero", "culera", "pinche", 
-    "chingón", "chingon", "joto", "cagada", "cagar", "cagado", "tarado", "tarada", "retrasado", 
-    "retrasada", "mongolo", "mongola",
-
-    // --- ALLEMAND (GERMAN) ---
-    "scheisse", "scheiße", "arschloch", "arsch", "fotze", "schlampe", "hure", "wichser", "verdammt", 
-    "Hurensohn", "Spast", "spasti", "schwachkopf", "vollidiot", "nutte", "sau", "schwein", "miststück", 
-    "kacke", "verarscht", "pisser", "sackgesicht", "arschgeige", "wixxer", "drecksau", "drecksack", 
-    "schlappschwanz", "arschficker", "hodensack", "möse", "titten", "schwuchtel", "kanacke", "neger", 
-    "judensau", "dummkopf",
-
-    // --- ITALIEN (ITALIAN) ---
-    "merda", "stronzo", "stronza", "cazzo", "vaffanculo", "culo", "fottiti", "puttana", "troia", 
-    "coglione", "cogliona", "bastardo", "bastarda", "frocio", "finocchio", "minchia", "pirla", 
-    "fottere", "porco", "porca", "vacca", "bocchinaro", "pompino", "pezzo di merda", "testa di cazzo", 
-    "rompiballe", "sfigato", "sfigata", "cretino", "cretina", "imbecille", "cornuto", "cornuta", 
-    "schifoso", "schifosa", "zoccola", "scemo", "scema",
-
-    // --- PORTUGAIS (PORTUGUESE) ---
-    "merda", "caralho", "puta", "puto", "filha da puta", "filho da puta", "foda-se", "foder", 
-    "vai tomar no cu", "buceta", "punheta", "viado", "corno", "corna", "otário", "otario", 
-    "imbecil", "retardado", "retardada", "bosta", "cacete", "porra", "desgraçado", "desgraçada", 
-    "rapariga", "quenga", "vagabunda", "pau", "piroca", "boiola", "bicha", "escroto", "escrota", "babaca",
-
-    // --- NÉERLANDAIS (DUTCH) ---
-    "kut", "shit", "godverdomme", "klootzak", "hufter", "hoer", "slet", "mokkel", "tering", 
-    "tyfus", "kanker", "eikel", "lul", "sukkel", "mongool", "homo", "pot", "flikker", "pedo", 
-    "pedofiel", "teringlijer", "tyfustelijer", "lulhannes", "stoephoer", "kutkop", "kakkerlak",
-
-    // --- RUSSE (RUSSIAN - TRANSLITTÉRÉ) ---
-    "blyat", "bliat", "blyad", "suka", "pizda", "pizdat", "nahuy", "nahui", "ebat", "ebal", 
-    "yeban", "eblan", "mudak", "mudaq", "chmo", "gavno", "govno", "pidor", "pidaras", "shluha", 
-    "shluva", "sukin syn", "zasranets", "huj", "hui", "mudila", "zalupa", "bljad",
-
-    // --- ARABE (ARABIC - TRANSLITTÉRÉ) ---
-    "kosom", "ksay", "sharmuta", "sharmouta", "kahba", "kahbe", "zamel", "zebi", "zebb", 
-    "qahba", "ibn al kalb", "kalb", "himar", "khara", "sharmoota", "ahbal", "hmar", "wahsh", 
-    "manayik", "menayik", "sharmout", "kos", "ks", "qahb"
+    "shit", "fuck", "bitch", "asshole", "cunt", "dick", "pussy", "slut", "whore", "motherfucker", "nigga", "nigger"
 ];
 
 // ==========================================
@@ -279,15 +253,15 @@ gameCards.forEach(card => {
     card.addEventListener('click', () => {
         const title = card.getAttribute('data-title');
         const url = card.getAttribute('data-url');
-        modalTitle.textContent = title;
-        gameContainer.innerHTML = `<iframe src="${url}" width="100%" height="650px" allowfullscreen style="border:none; border-radius:10px;"></iframe>`;
-        modal.classList.remove('hidden');
+        if(modalTitle) modalTitle.textContent = title;
+        if(gameContainer) gameContainer.innerHTML = `<iframe src="${url}" width="100%" height="650px" allowfullscreen style="border:none; border-radius:10px;"></iframe>`;
+        if(modal) modal.classList.remove('hidden');
     });
 });
 
-closeBtn.addEventListener('click', () => {
-    modal.classList.add('hidden');
-    gameContainer.innerHTML = "";
+if(closeBtn) closeBtn.addEventListener('click', () => {
+    if(modal) modal.classList.add('hidden');
+    if(gameContainer) gameContainer.innerHTML = "";
 });
 
 window.addEventListener('click', (e) => {
@@ -297,7 +271,7 @@ window.addEventListener('click', (e) => {
     }
 });
 
-fsBtn.addEventListener('click', () => {
+if(fsBtn) fsBtn.addEventListener('click', () => {
     const iframe = gameContainer.querySelector('iframe');
     if (iframe && iframe.requestFullscreen) {
         iframe.requestFullscreen();
@@ -328,8 +302,7 @@ async function battementDeCoeur() {
         await setDoc(doc(presenceRef, sessionId), {
             dernierSignal: Date.now()
         });
-    } catch (e) {
-    }
+    } catch (e) {}
 }
 
 battementDeCoeur();
@@ -351,10 +324,7 @@ onSnapshot(presenceRef, (snapshot) => {
     });
 
     if (actifsCount < 1) actifsCount = 1;
-
-    if (liveElement) {
-        liveElement.textContent = actifsCount;
-    }
+    if (liveElement) liveElement.textContent = actifsCount;
 });
 
 // Compteurs de temps (Session locale & Total Cloud synchronisé)
@@ -396,7 +366,6 @@ setInterval(async () => {
                     totalSeconds: totalSeconds
                 });
             } catch (err) {
-                // Si le doc n'existe pas encore, on le crée
                 await setDoc(doc(db, "users", currentUser.uid), { totalSeconds: totalSeconds }, { merge: true });
             }
         }
@@ -419,7 +388,7 @@ if (contactForm) {
         }
         setTimeout(() => {
             contactForm.classList.add('hidden');
-            confirmation.classList.remove('hidden');
+            if(confirmation) confirmation.classList.remove('hidden');
         }, 500); 
     });
 }
@@ -429,7 +398,6 @@ if (contactForm) {
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
-const adminPwdInput = document.getElementById("chat-admin-pwd");
 let estAdminConnecte = false;
 
 const adminPanel = document.createElement("div");
@@ -451,15 +419,13 @@ if (container) {
 window.unbanUser = async (docId) => {
     try {
         await deleteDoc(doc(db, "banned_ips", docId));
-    } catch (e) {
-    }
+    } catch (e) {}
 };
 
 window.unmuteUser = async (docId) => {
     try {
         await deleteDoc(doc(db, "muted_ips", docId));
-    } catch (e) {
-    }
+    } catch (e) {}
 };
 
 function renderAdminPanel() {
@@ -613,8 +579,7 @@ function afficherMessagesHTML(snapshotDocs) {
         }
 
         container.appendChild(div);
-      } catch (err) {
-      }
+      } catch (err) {}
     });
     container.scrollTop = container.scrollHeight;
 }
@@ -629,15 +594,12 @@ onSnapshot(mutedIpsRef, (snapshot) => {
 });
 
 // ==========================================
-// 7. ENVOI DES MESSAGES CHAT (LIÉ AU COMPTE)
+// 7. ENVOI DES MESSAGES CHAT
 // ==========================================
 if (btnSend && container) {
   btnSend.addEventListener("click", async () => {
-    // Si l'utilisateur tape "kevin" comme mot de passe admin caché (via le champ pseudo si on veut, ou autre)
-    // Ici on récupère le pseudo unique du compte connecté, ou "Anonyme" s'il n'est pas connecté
     let pseudoSaisi = userPseudo;
     
-    // Petite astuce pour se connecter en admin si on s'appelle admin ou si on tape le mot de passe admin
     if (pseudoSaisi.toLowerCase() === "kevin" && !estAdminConnecte) {
       estAdminConnecte = true;
       alert("🛡️ Connecté en tant qu'Administrateur !");
@@ -673,7 +635,7 @@ if (btnSend && container) {
 
     if (!texte && !file) return;
 
-    // --- CENSURE AUTOMATIQUE PAR ÉTOILES ---
+    // Censure
     if (texte !== "") {
         motsInterdits.forEach(mot => {
             const regex = new RegExp(`\\b${mot}\\b`, 'gi');

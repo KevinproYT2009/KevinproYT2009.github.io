@@ -38,6 +38,7 @@
         <!-- SECTION COMPTE / AUTHENTIFICATION -->
         <section id="auth-section" class="content-section" style="background: var(--card-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <h2>Mon Compte Gamenter</h2>
+            
             <div id="user-logged-out">
                 <p>Connecte-toi pour synchroniser ton temps d'écran et sécuriser ton pseudo unique !</p>
                 <div style="display: flex; flex-direction: column; gap: 10px; max-width: 350px; margin: 0 auto;">
@@ -49,8 +50,14 @@
                         <button id="btn-register" style="flex: 1; background: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;">S'inscrire</button>
                         <button id="btn-login" style="flex: 1; background: var(--accent-color); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;">Se connecter</button>
                     </div>
+                    
+                    <!-- Bouton Google ajouté ici -->
+                    <button id="btn-google-login" style="background-color: #4285F4; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;">
+                        Continuer avec Google
+                    </button>
                 </div>
             </div>
+
             <div id="user-logged-in" class="hidden">
                 <p>Connecté en tant que : <strong id="profile-pseudo" style="color: var(--accent-color);"></strong> (<span id="profile-email"></span>)</p>
                 <button id="btn-logout" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Se déconnecter</button>
@@ -83,24 +90,22 @@
 
         <section class="icon-link-card">
             <div>
-            <a href="Tetris.html" class="square-icon-link" title="Visiter Tetris">
-                <img src="tetris.png" alt="Tetris" />
-            </a>
-            <p>Visiter Tetris</p>
+                <a href="Tetris.html" class="square-icon-link" title="Visiter Tetris">
+                    <img src="tetris.png" alt="Tetris" />
+                </a>
+                <p>Visiter Tetris</p>
             </div>
-
             <div>
-            <a href="Pac-Man.html" class="square-icon-link" title="Visiter Pac-Man">
-                <img src="pac-man.png" alt="Pac-Man" />
-            </a>
-            <p>Visiter Pac-Man</p>
+                <a href="Pac-Man.html" class="square-icon-link" title="Visiter Pac-Man">
+                    <img src="pac-man.png" alt="Pac-Man" />
+                </a>
+                <p>Visiter Pac-Man</p>
             </div>
-
             <div>
-            <a href="Snake.html" class="square-icon-link" title="Visiter Snake">
-                <img src="snake.png" alt="Snake" />
-            </a>
-            <p>Visiter Snake</p>
+                <a href="Snake.html" class="square-icon-link" title="Visiter Snake">
+                    <img src="snake.png" alt="Snake" />
+                </a>
+                <p>Visiter Snake</p>
             </div>
         </section>
 
@@ -115,9 +120,6 @@
                 </div>
                 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <!-- Le pseudo est maintenant géré automatiquement par le compte connecté -->
-                    <input type="password" id="chat-admin-pwd" placeholder="Mot de passe Admin" style="display: none; padding: 12px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
-
                     <input type="text" id="chat-message" placeholder="Ton message..." maxlength="100" style="padding: 12px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
                     
                     <div style="display: flex; align-items: center; gap: 10px; background: var(--bg-color); padding: 8px; border-radius: 5px; border: 1px solid var(--border-color);">
