@@ -44,11 +44,14 @@ async function verifierConnexion() {
             }
         }
     } catch (e) {
-        // C'est ici qu'on ajoute le console.error pour identifier le blocage mobile
         console.error("Erreur anti-VPN mobile :", e);
         isVPN = false;
     }
 }
+
+let listBanned = [];
+let listMuted = [];
+let dernieresDonneesMessages = [];
 
 // ==========================================
 // 3. LISTE DES MOTS INTERDITS (MULTILANGUE)
