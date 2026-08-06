@@ -3,178 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gamenter - Plateforme de Jeux Rétro & Chat</title>
-    <style>
-        :root {
-            --bg-color: #f4f4f9;
-            --text-color: #333;
-            --card-bg: #fff;
-            --accent-color: #007bff;
-        }
-        body.dark-mode {
-            --bg-color: #121212;
-            --text-color: #f4f4f9;
-            --card-bg: #1e1e1e;
-            --accent-color: #4dabf7;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            transition: background 0.3s, color 0.3s;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        button {
-            cursor: pointer;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            background-color: var(--accent-color);
-            color: white;
-            font-weight: bold;
-        }
-        .stats-bar {
-            background: var(--card-bg);
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .game-card {
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-        .game-card:hover {
-            transform: translateY(-3px);
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal.hidden {
-            display: none;
-        }
-        .modal-content {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
-            max-width: 800px;
-            text-align: center;
-        }
-        .chat-section {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        #messages-container {
-            height: 200px;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            background: rgba(0,0,0,0.02);
-        }
-        .hidden {
-            display: none !important;
-        }
-    </style>
+    <meta name="description" content="Gamenter - Plateforme de jeux rétro">
+    <title>Gamenter</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="lettre-g.png">
 </head>
 <body>
-
     <header>
-        <h1>Gamenter</h1>
-        <button id="toggleBtn">🌓 Changer de thème</button>
+        <div class="logo-zone">
+            <a href="#accueil" class="logo-link">
+                <img src="lettre-g.png" alt="Logo" class="petit-logo">
+                <h1>Gamenter</h1>
+            </a>
+        </div>
+
+        <nav class="menu-zone">
+            <a href="#jeux">Jeux</a>
+            <a href="#chat">Chat</a>
+            <a href="#support">Support</a>
+            <a href="#parametres">Paramètres</a>
+        </nav>
+
+        <div class="bouton-zone">
+            <div class="visiteurs-nsi">
+                <div><span id="nb-live">15</span> en ligne</div>
+                <!-- NOUVEAU : Compteurs de temps intégrés ici -->
+                <div style="font-size: 0.85em; margin-top: 5px;">⏱️ Session : <span id="current-time">00:00</span></div>
+                <div style="font-size: 0.85em;">⏳ Total : <span id="total-time">00:00</span></div>
+            </div>
+            <img src="bouton.png" alt="bouton" id="toggleBtn" class="toggle"/>
+        </div>
     </header>
 
-    <!-- Barre de statistiques et compteurs -->
-    <div class="stats-bar">
-        <div>👥 Joueurs en ligne : <span id="nb-live">1</span></div>
-        <div>⏱️ Session actuelle : <span id="current-time">00:00</span></div>
-        <div>⏳ Temps total sur le site : <span id="total-time">00:00</span></div>
-    </div>
+    <main>
+        <section id="accueil" class="accueil-section">
+            <h2>Bienvenue sur Gamenter !</h2>
+            <p>Plongez dans la nostalgie avec notre sélection de jeux rétro jouables directement dans votre navigateur. Aucune installation n'est requise, juste du plaisir instantané !</p>
+            <a href="#jeux" class="cta-button">Commencer à jouer</a>
+        </section>
 
-    <!-- Section des Jeux -->
-    <h2>Jeux disponibles</h2>
-    <div class="games-grid">
-        <div class="game-card" data-title="Jeu Exemple 1" data-url="https://example.com">
-            <h3>Jeu 1</h3>
-            <p>Jouer au jeu 1</p>
-        </div>
-    </div>
-
-    <!-- Modal de jeu -->
-    <div id="game-modal" class="modal hidden">
-        <div class="modal-content">
-            <h2 id="modal-title">Titre du jeu</h2>
-            <div id="game-container"></div>
-            <div style="margin-top: 15px;">
-                <button id="fullscreen-button">Plein écran</button>
-                <button id="close-button" style="background: #dc3545;">Fermer</button>
+        <section id="jeux" class="game-grid">
+            <div class="game-card" data-title="Tetris" data-url="https://djblue.github.io/tetris/">
+                <img src="tetris.png" alt="Icone Tetris" class="game-icon">
+                <h3>Tetris</h3>
+                <p>1984 - Puzzle culte.</p>
             </div>
+            <div class="game-card" data-title="Pac-Man" data-url="https://masonicgit.github.io/pacman/">
+                <img src="pac-man.png" alt="Icone Pac-Man" class="game-icon">
+                <h3>Pac-Man</h3>
+                <p>1980 - Le labyrinthe infini.</p>
+            </div>
+            <div class="game-card" data-title="Snake" data-url="https://www.snake.be/fr/game-fr/1.3/index.html">
+                <img src="snake.png" alt="Icone Snake" class="game-icon">
+                <h3>Snake</h3>
+                <p>1977 - Le serpent classique.</p>
+            </div>
+        </section>
+
+        <section class="icon-link-card">
+            <div>
+            <a href="Tetris.html" class="square-icon-link" title="Visiter Tetris">
+                <img src="tetris.png" alt="Tetris" />
+            </a>
+            <p>Visiter Tetris</p>
+            </div>
+
+            <div>
+            <a href="Pac-Man.html" class="square-icon-link" title="Visiter Pac-Man">
+                <img src="pac-man.png" alt="Pac-Man" />
+            </a>
+            <p>Visiter Pac-Man</p>
+            </div>
+
+            <div>
+            <a href="Snake.html" class="square-icon-link" title="Visiter Snake">
+                <img src="snake.png" alt="Snake" />
+            </a>
+            <p>Visiter Snake</p>
+            </div>
+        </section>
+
+        <!-- SECTION CHAT -->
+        <section id="chat" class="content-section">
+            <h2>Chat Global</h2>
+            <p>Discute et partage tes fichiers en direct !</p>
+            
+            <div style="max-width: 500px; margin: 0 auto;">
+                <div id="messages-container" style="height: 250px; background: #000; color: #fff; overflow-y: auto; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; border: 1px solid var(--border-color);">
+                    <p style="color: #888; font-style: italic; text-align: center;">Chargement du chat...</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="chat-pseudo" placeholder="Ton pseudo" maxlength="15" style="padding: 12px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
+                    
+                    <!-- Champ mot de passe admin -->
+                    <input type="password" id="chat-admin-pwd" placeholder="Mot de passe Admin" style="display: none; padding: 12px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
+
+                    <input type="text" id="chat-message" placeholder="Ton message..." maxlength="100" style="padding: 12px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
+                    
+                    <!-- Sélecteur de fichier -->
+                    <div style="display: flex; align-items: center; gap: 10px; background: var(--bg-color); padding: 8px; border-radius: 5px; border: 1px solid var(--border-color);">
+                        <label for="chat-file" style="cursor: pointer; font-size: 0.9rem; font-weight: bold;">📁 Fichier PC :</label>
+                        <input type="file" id="chat-file" accept="image/*,audio/mp3,video/mp4" style="font-size: 0.8rem; color: var(--text-color);">
+                    </div>
+
+                    <button id="chat-send" style="background: var(--accent-color); color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold;">Envoyer</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="support" class="content-section">
+            <h2>Support Technique</h2>
+            <p>Un bug ou une question ? Contactez-nous via ce formulaire :</p>
+            
+            <form action="https://api.web3forms.com/submit" method="POST" id="contact-form">
+                <input type="hidden" name="access_key" value="35b5ee3a-2c61-40be-86da-4e01ecc0f86d">
+                <input type="text" name="name" placeholder="Votre nom" required>
+                <input type="email" name="email" placeholder="Votre email" required>
+                <textarea name="message" placeholder="Votre message..." required></textarea>
+                
+                <div id="captcha-container">
+                    <span id="question-label"></span>
+                    <input type="number" id="captcha-reponse" placeholder="?" required>
+                </div>
+
+                <button type="submit" id="btn-envoyer">Envoyer le message</button>
+            </form>
+
+            <div id="confirmation" class="hidden">
+                <p>Message transmis avec succès à l'équipe Gamenter !</p>
+            </div>
+        </section>
+
+        <section id="parametres" class="content-section">
+            <h2>Paramètres & Infos</h2>
+            <div class="settings-box">
+                <h3>Apparence</h3>
+                <p>Gamenter détecte automatiquement le thème de votre ordinateur. Vous pouvez forcer le mode avec l'interrupteur en haut à droite.</p>
+            </div>
+            <div class="settings-box">
+                <h3>À propos</h3>
+                <p>Gamenter est un projet scolaire conçu pour offrir une expérience de jeu rétro fluide.</p>
+                <p><strong>Version :</strong> 2.0</p>
+            </div>
+        </section>
+    </main>
+
+    <div id="game-modal" class="hidden">
+        <div class="modal-content">
+            <span id="close-button">&times;</span>
+            <h2 id="modal-title">Jeu</h2>
+            <div id="game-container"></div>
+            <button id="fullscreen-button">Plein écran</button>
         </div>
     </div>
 
-    <!-- Section Contact / Captcha -->
-    <section style="margin-top: 30px;">
-        <h2>Contact</h2>
-        <form id="contact-form">
-            <p id="question-label">Combien font X + Y ?</p>
-            <input type="number" id="captcha-reponse" placeholder="Votre réponse" required>
-            <button type="submit">Valider</button>
-        </form>
-        <div id="confirmation" class="hidden">
-            <p style="color: green;">Formulaire validé avec succès !</p>
-        </div>
-    </section>
-
-    <!-- Section Chat Global -->
-    <section class="chat-section" style="margin-top: 30px;">
-        <h2>Chat en direct</h2>
-        <div id="messages-container"></div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-            <input type="text" id="chat-pseudo" placeholder="Votre pseudo" style="padding: 8px; border-radius: 5px; border: 1px solid #ccc;">
-            <input type="password" id="chat-admin-pwd" placeholder="Mot de passe Admin" style="display:none; padding: 8px; border-radius: 5px; border: 1px solid #ff3333;">
-        </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" id="chat-message" placeholder="Écrire un message..." style="flex: 1; padding: 8px; border-radius: 5px; border: 1px solid #ccc; min-width: 200px;">
-            <input type="file" id="chat-file" accept="image/*,video/*,audio/*" style="padding: 5px;">
-            <button id="chat-send">Envoyer</button>
-        </div>
-    </section>
-
-    <!-- Script principal JavaScript -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
