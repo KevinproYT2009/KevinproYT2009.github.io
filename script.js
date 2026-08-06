@@ -34,8 +34,6 @@ async function verifierConnexion() {
         const res = await fetch(`https://proxycheck.io/v3/?key=${PROXYCHECK_PUBLIC_KEY}&vpn=1`);
         const json = await res.json();
         
-        console.log("📡 Réponse API Proxycheck :", json); 
-        
         if (json && json.ip) {
             userIp = json.ip;
         }
@@ -43,18 +41,13 @@ async function verifierConnexion() {
         if (json && (json.status === "warning" || json.status === "ok") && json[json.ip]) {
             const ipData = json[json.ip];
             
-            // Détection renforcée : VPN, Proxys, et Hébergeurs (Datacenters/Hosting)
             if (ipData.proxy === "yes" || ipData.vpn === "yes" || ipData.type === "VPN" || ipData.type === "Hosting" || ipData.type === "Datacenter") {
                 isVPN = true;
             } else if (ipData.detections && ipData.detections.anonymous === true) {
                 isVPN = true;
             }
         }
-        
-        console.log("🛡️ Bloqué par l'anti-VPN ? :", isVPN);
-        
     } catch (e) {
-        console.error("Erreur anti-VPN mobile :", e);
         isVPN = false;
     }
 }
@@ -217,7 +210,6 @@ async function battementDeCoeur() {
             dernierSignal: Date.now()
         });
     } catch (e) {
-        console.error("Erreur de présence :", e);
     }
 }
 
@@ -296,7 +288,6 @@ window.unbanUser = async (docId) => {
     try {
         await deleteDoc(doc(db, "banned_ips", docId));
     } catch (e) {
-        console.error("Erreur lors du débannissement :", e);
     }
 };
 
@@ -304,7 +295,6 @@ window.unmuteUser = async (docId) => {
     try {
         await deleteDoc(doc(db, "muted_ips", docId));
     } catch (e) {
-        console.error("Erreur lors du démutage :", e);
     }
 };
 
@@ -460,7 +450,6 @@ function afficherMessagesHTML(snapshotDocs) {
 
         container.appendChild(div);
       } catch (err) {
-        console.error("Erreur d'affichage d'un message :", err);
       }
     });
     container.scrollTop = container.scrollHeight;
@@ -486,7 +475,6 @@ document.addEventListener("visibilitychange", async () => {
             dernieresDonneesMessages = snapshot.docs;
             afficherMessagesHTML(dernieresDonneesMessages);
         } catch (e) {
-            console.error("Erreur de resynchronisation :", e);
         }
     }
 });
@@ -637,7 +625,5 @@ if (btnSend && container) {
   onSnapshot(q, (snapshot) => {
     dernieresDonneesMessages = snapshot.docs;
     afficherMessagesHTML(dernieresDonneesMessages);
-  }, (error) => {
-    console.error("Erreur Firestore :", error);
   });
 }
