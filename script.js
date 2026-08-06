@@ -31,18 +31,28 @@ const PROXYCHECK_PUBLIC_KEY = "public-s844i8-241hnq-k19j5e";
 async function verifierConnexion() {
     isVPN = false;
     try {
-        const res = await fetch(`https://proxycheck.io/v3/?key=${PROXYCHECK_PUBLIC_KEY}`);
+        const res = await fetch(`https://proxycheck.io/v3/?key=${PROXYCHECK_PUBLIC_KEY}&vpn=1`);
         const json = await res.json();
+        
+        console.log("📡 Réponse API Proxycheck :", json); 
         
         if (json && json.ip) {
             userIp = json.ip;
         }
 
-        if (json && (json.status === "warning" || json.status === "ok") && json[json.ip] && json[json.ip].detections) {
-            if (json[json.ip].detections.anonymous === true) {
+        if (json && (json.status === "warning" || json.status === "ok") && json[json.ip]) {
+            const ipData = json[json.ip];
+            
+            // Détection renforcée : VPN, Proxys, et Hébergeurs (Datacenters/Hosting)
+            if (ipData.proxy === "yes" || ipData.vpn === "yes" || ipData.type === "VPN" || ipData.type === "Hosting" || ipData.type === "Datacenter") {
+                isVPN = true;
+            } else if (ipData.detections && ipData.detections.anonymous === true) {
                 isVPN = true;
             }
         }
+        
+        console.log("🛡️ Bloqué par l'anti-VPN ? :", isVPN);
+        
     } catch (e) {
         console.error("Erreur anti-VPN mobile :", e);
         isVPN = false;
