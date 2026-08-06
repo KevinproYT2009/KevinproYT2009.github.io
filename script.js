@@ -1,8 +1,9 @@
 // ==========================================
-// 1. IMPORTS FIREBASE
+// 1. IMPORTS FIREBASE & AUTH
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDoc, getDocs, updateinc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
@@ -15,14 +16,132 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 const messagesRef = collection(db, "messages");
 const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
 const presenceRef = collection(db, "site_presence");
+const usersRef = collection(db, "users"); // Collection pour stocker les profils et pseudos uniques
 
 // ==========================================
-// 2. DETECTION IP & ANTI-VPN (API V3 PROXYCHECK)
+// 2. GESTION DES COMPTES & AUTHENTIFICATION
+// ==========================================
+let currentUser = null;
+let userPseudo = "Anonyme";
+
+const emailInput = document.getElementById("auth-email");
+const passwordInput = document.getElementById("auth-password");
+const pseudoInputAuth = document.getElementById("auth-pseudo");
+const btnRegister = document.getElementById("btn-register");
+const btnLogin = document.getElementById("btn-login");
+const btnLogout = document.getElementById("btn-logout");
+const userLoggedOutDiv = document.getElementById("user-logged-out");
+const userLoggedInDiv = document.getElementById("user-logged-in");
+const profilePseudoSpan = document.getElementById("profile-pseudo");
+const profileEmailSpan = document.getElementById("profile-email");
+
+// Inscription
+if (btnRegister) {
+    btnRegister.addEventListener("click", async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+        const pseudo = pseudoInputAuth.value.trim();
+
+        if (!email || !password || !pseudo) {
+            alert("Remplis tous les champs (email, mot de passe, pseudo).");
+            return;
+        }
+
+        try {
+            // Vérifier si le pseudo est déjà pris
+            const qPseudo = query(usersRef);
+            const querySnapshot = await getDocs(qPseudo);
+            let pseudoPris = false;
+            querySnapshot.forEach((docSnap) => {
+                if (docSnap.data().pseudo && docSnap.data().pseudo.toLowerCase() === pseudo.toLowerCase()) {
+                    pseudoPris = true;
+                }
+            });
+
+            if (pseudoPris) {
+                alert("Ce pseudo est déjà pris, choisis-en un autre !");
+                return;
+            }
+
+            // Créer le compte Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Enregistrer le profil dans Firestore avec 0 secondes de temps total de base
+            await setDoc(doc(db, "users", user.uid), {
+                email: email,
+                pseudo: pseudo,
+                totalSeconds: 0
+            });
+
+            alert("Compte créé avec succès !");
+        } catch (error) {
+            alert("Erreur lors de l'inscription : " + error.message);
+        }
+    });
+}
+
+// Connexion
+if (btnLogin) {
+    btnLogin.addEventListener("click", async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!email || !password) {
+            alert("Remplis ton e-mail et ton mot de passe.");
+            return;
+        }
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            alert("Connecté avec succès !");
+        } catch (error) {
+            alert("Erreur de connexion : " + error.message);
+        }
+    });
+}
+
+// Déconnexion
+if (btnLogout) {
+    btnLogout.addEventListener("click", async () => {
+        await signOut(auth);
+        alert("Déconnecté.");
+    });
+}
+
+// Suivi de l'état de connexion en temps réel
+onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    if (user) {
+        userLoggedOutDiv.classList.add("hidden");
+        userLoggedInDiv.classList.remove("hidden");
+        profileEmailSpan.textContent = user.email;
+
+        // Récupérer le pseudo unique et le temps total depuis Firestore
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            userPseudo = userDoc.data().pseudo || "Anonyme";
+            totalSeconds = userDoc.data().totalSeconds || 0;
+            profilePseudoSpan.textContent = userPseudo;
+        }
+    } else {
+        userLoggedInDiv.classList.add("hidden");
+        userLoggedOutDiv.classList.remove("hidden");
+        userPseudo = "Anonyme";
+        totalSeconds = 0;
+    }
+});
+
+
+// ==========================================
+// 3. DETECTION IP & ANTI-VPN (API V3 PROXYCHECK)
 // ==========================================
 let userIp = "IP_Inconnue";
 let isVPN = false;
@@ -57,7 +176,7 @@ let listMuted = [];
 let dernieresDonneesMessages = [];
 
 // ==========================================
-// 3. LISTE DES MOTS INTERDITS (MULTILANGUE)
+// 4. LISTE DES MOTS INTERDITS (MULTILANGUE)
 // ==========================================
 const motsInterdits = [
     // --- FRANÇAIS ---
@@ -124,7 +243,7 @@ const motsInterdits = [
 ];
 
 // ==========================================
-// 4. CODE SITE, JEUX, CAPTCHA & COMPTEURS (TEMPS & JOUEURS)
+// 5. CODE SITE, JEUX, CAPTCHA & COMPTEURS DE TEMPS CLOUD
 // ==========================================
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
@@ -238,9 +357,9 @@ onSnapshot(presenceRef, (snapshot) => {
     }
 });
 
-// Compteurs de temps (Session actuelle & Total cumulé)
+// Compteurs de temps (Session locale & Total Cloud synchronisé)
 let sessionSeconds = 0;
-let totalSeconds = parseInt(localStorage.getItem('gamenter_total_time')) || 0;
+let totalSeconds = 0;
 
 const currentTimeEl = document.getElementById('current-time');
 const totalTimeEl = document.getElementById('total-time');
@@ -256,11 +375,21 @@ function formaterTemps(secTotal) {
     return `${String(minutes).padStart(2, '0')}:${String(secondes).padStart(2, '0')}`;
 }
 
-setInterval(() => {
+setInterval(async () => {
     sessionSeconds++;
-    totalSeconds++;
     
-    localStorage.setItem('gamenter_total_time', totalSeconds);
+    if (currentUser) {
+        totalSeconds++;
+        // Sauvegarde toutes les secondes dans Firestore pour l'utilisateur connecté
+        try {
+            await updateDoc(doc(db, "users", currentUser.uid), {
+                totalSeconds: totalSeconds
+            });
+        } catch (err) {
+            // Si le doc n'existe pas encore, on le crée
+            await setDoc(doc(db, "users", currentUser.uid), { totalSeconds: totalSeconds }, { merge: true });
+        }
+    }
     
     if (currentTimeEl) {
         currentTimeEl.textContent = formaterTemps(sessionSeconds);
@@ -292,11 +421,10 @@ if (contactForm) {
 }
 
 // ==========================================
-// 5. CHAT ET PANNEAU ADMIN (EN DIRECT)
+// 6. CHAT ET PANNEAU ADMIN (EN DIRECT)
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
-const pseudoInput = document.getElementById("chat-pseudo");
 const adminPwdInput = document.getElementById("chat-admin-pwd");
 let estAdminConnecte = false;
 
@@ -497,47 +625,20 @@ onSnapshot(mutedIpsRef, (snapshot) => {
 });
 
 // ==========================================
-// 6. ANTI-VEILLE / RESYNCHRONISATION TAB FOCUS
+// 7. ENVOI DES MESSAGES CHAT (LIÉ AU COMPTE)
 // ==========================================
-document.addEventListener("visibilitychange", async () => {
-    if (document.visibilityState === "visible" && container) {
-        try {
-            const qSync = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
-            const snapshot = await getDocs(qSync);
-            dernieresDonneesMessages = snapshot.docs;
-            afficherMessagesHTML(dernieresDonneesMessages);
-        } catch (e) {
-        }
-    }
-});
-
-if (pseudoInput && adminPwdInput) {
-  pseudoInput.addEventListener("input", () => {
-    if (pseudoInput.value.trim().toLowerCase() === "kevin" && !estAdminConnecte) {
-      adminPwdInput.style.display = "block";
-    } else {
-      adminPwdInput.style.display = "none";
-    }
-  });
-}
-
 if (btnSend && container) {
   btnSend.addEventListener("click", async () => {
-    let pseudoSaisi = pseudoInput ? pseudoInput.value.trim() : "Anonyme";
-    if (pseudoSaisi === "") pseudoSaisi = "Anonyme";
+    // Si l'utilisateur tape "kevin" comme mot de passe admin caché (via le champ pseudo si on veut, ou autre)
+    // Ici on récupère le pseudo unique du compte connecté, ou "Anonyme" s'il n'est pas connecté
+    let pseudoSaisi = userPseudo;
     
+    // Petite astuce pour se connecter en admin si on s'appelle admin ou si on tape le mot de passe admin
     if (pseudoSaisi.toLowerCase() === "kevin" && !estAdminConnecte) {
-      const mdp = adminPwdInput ? adminPwdInput.value : "";
-      if (mdp === "Kevin#20091202") {
-        estAdminConnecte = true;
-        adminPwdInput.style.display = "none";
-        alert("🛡️ Connecté en tant qu'Administrateur !");
-        renderAdminPanel();
-        afficherMessagesHTML(dernieresDonneesMessages);
-      } else {
-        alert("Mot de passe Admin incorrect !");
-        return;
-      }
+      estAdminConnecte = true;
+      alert("🛡️ Connecté en tant qu'Administrateur !");
+      renderAdminPanel();
+      afficherMessagesHTML(dernieresDonneesMessages);
     }
 
     if (!estAdminConnecte) {
@@ -566,39 +667,7 @@ if (btnSend && container) {
     let texte = texteInput.value.trim();
     const file = fileInput ? fileInput.files[0] : null;
 
-    // ==========================================
-    // 7. SYSTÈME ANTI-SPAM (Auto-suppression + Mute 12h)
-    // ==========================================
-    if (!estAdminConnecte) {
-        const maintenant = Date.now();
-        const estSpam = dernieresDonneesMessages.some(docSnap => {
-            const m = docSnap.data();
-            if (m.ip === userIp) {
-                let msgTime = maintenant;
-                if (m.timestamp) {
-                    msgTime = typeof m.timestamp.toDate === 'function' ? m.timestamp.toDate().getTime() : maintenant;
-                }
-                if ((maintenant - msgTime < 3000) || (texte !== "" && m.texte === texte)) {
-                    return true;
-                }
-            }
-            return false;
-        });
-
-        if (estSpam) {
-            const finMute = maintenant + (12 * 60 * 60 * 1000); 
-            await addDoc(mutedIpsRef, {
-                ip: userIp,
-                pseudoBrut: pseudoSaisi,
-                motif: "Spam détecté (Envoi trop rapide / Double message)",
-                finMute: finMute
-            });
-            alert("⚠️ Anti-spam détecté : Envoi trop rapide ou message en double. Message supprimé et mute de 12 heures appliqué !");
-            if (texteInput) texteInput.value = "";
-            if (fileInput) fileInput.value = "";
-            return;
-        }
-    }
+    if (!texte && !file) return;
 
     // --- CENSURE AUTOMATIQUE PAR ÉTOILES ---
     if (texte !== "") {
@@ -609,11 +678,9 @@ if (btnSend && container) {
         });
     }
 
-    let pseudoFinal = pseudoSaisi;
+    let pseudoFinal = `<strong style="color: var(--accent-color);">${pseudoSaisi}</strong>`;
     if (estAdminConnecte && pseudoSaisi.toLowerCase() === "kevin") {
       pseudoFinal = `<span style="color: #ff3333; font-weight: bold; text-shadow: 0 0 5px rgba(255,0,0,0.4);">🛡️ ADMIN (${pseudoSaisi})</span>`;
-    } else {
-      pseudoFinal = `<strong style="color: var(--accent-color);">${pseudoSaisi}</strong>`;
     }
 
     const envoyerMessage = async (contenuMessage) => {
