@@ -124,7 +124,7 @@ const motsInterdits = [
 ];
 
 // ==========================================
-// 4. CODE SITE, JEUX, CAPTCHA & COMPTEUR RÉEL
+// 4. CODE SITE, JEUX, CAPTCHA & COMPTEURS (TEMPS & JOUEURS)
 // ==========================================
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
@@ -237,6 +237,38 @@ onSnapshot(presenceRef, (snapshot) => {
         liveElement.textContent = actifsCount;
     }
 });
+
+// Compteurs de temps (Session actuelle & Total cumulé)
+let sessionSeconds = 0;
+let totalSeconds = parseInt(localStorage.getItem('gamenter_total_time')) || 0;
+
+const currentTimeEl = document.getElementById('current-time');
+const totalTimeEl = document.getElementById('total-time');
+
+function formaterTemps(secTotal) {
+    const heures = Math.floor(secTotal / 3600);
+    const minutes = Math.floor((secTotal % 3600) / 60);
+    const secondes = secTotal % 60;
+    
+    if (heures > 0) {
+        return `${heures}h ${String(minutes).padStart(2, '0')}m ${String(secondes).padStart(2, '0')}s`;
+    }
+    return `${String(minutes).padStart(2, '0')}:${String(secondes).padStart(2, '0')}`;
+}
+
+setInterval(() => {
+    sessionSeconds++;
+    totalSeconds++;
+    
+    localStorage.setItem('gamenter_total_time', totalSeconds);
+    
+    if (currentTimeEl) {
+        currentTimeEl.textContent = formaterTemps(sessionSeconds);
+    }
+    if (totalTimeEl) {
+        totalTimeEl.textContent = formaterTemps(totalSeconds);
+    }
+}, 1000);
 
 window.addEventListener('DOMContentLoaded', () => {
     applyTheme();
