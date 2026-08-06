@@ -2,7 +2,7 @@
 // 1. IMPORTS FIREBASE & AUTH
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDoc, getDocs, updateinc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDoc, getDocs, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -378,24 +378,28 @@ function formaterTemps(secTotal) {
 setInterval(async () => {
     sessionSeconds++;
     
-    if (currentUser) {
-        totalSeconds++;
-        // Sauvegarde toutes les secondes dans Firestore pour l'utilisateur connecté
-        try {
-            await updateDoc(doc(db, "users", currentUser.uid), {
-                totalSeconds: totalSeconds
-            });
-        } catch (err) {
-            // Si le doc n'existe pas encore, on le crée
-            await setDoc(doc(db, "users", currentUser.uid), { totalSeconds: totalSeconds }, { merge: true });
-        }
-    }
-    
     if (currentTimeEl) {
         currentTimeEl.textContent = formaterTemps(sessionSeconds);
     }
-    if (totalTimeEl) {
-        totalTimeEl.textContent = formaterTemps(totalSeconds);
+    
+    if (currentUser) {
+        totalSeconds++;
+        
+        if (totalTimeEl) {
+            totalTimeEl.textContent = formaterTemps(totalSeconds);
+        }
+        
+        // Sauvegarde Firebase (1 fois toutes les 15 secondes)
+        if (sessionSeconds % 15 === 0) {
+            try {
+                await updateDoc(doc(db, "users", currentUser.uid), {
+                    totalSeconds: totalSeconds
+                });
+            } catch (err) {
+                // Si le doc n'existe pas encore, on le crée
+                await setDoc(doc(db, "users", currentUser.uid), { totalSeconds: totalSeconds }, { merge: true });
+            }
+        }
     }
 }, 1000);
 
