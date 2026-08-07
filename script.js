@@ -23,13 +23,14 @@ const messagesRef = collection(db, "messages");
 const bannedIpsRef = collection(db, "banned_ips");
 const mutedIpsRef = collection(db, "muted_ips");
 const presenceRef = collection(db, "site_presence");
-const usersRef = collection(db, "users"); 
+const usersRef = collection(db, "users");
 
 // ==========================================
 // 2. GESTION DES COMPTES & AUTHENTIFICATION
 // ==========================================
 let currentUser = null;
 let userPseudo = "Anonyme";
+let estAdminConnecte = false;
 
 const emailInput = document.getElementById("auth-email");
 const passwordInput = document.getElementById("auth-password");
@@ -60,7 +61,8 @@ if (btnGoogleLogin) {
                 await setDoc(userDocRef, {
                     email: user.email,
                     pseudo: pseudoBase,
-                    totalSeconds: 0
+                    totalSeconds: 0,
+                    isAdmin: false
                 });
             }
             alert("Connecté avec Google avec succès !");
@@ -103,7 +105,8 @@ if (btnRegister) {
             await setDoc(doc(db, "users", user.uid), {
                 email: email,
                 pseudo: pseudo,
-                totalSeconds: 0
+                totalSeconds: 0,
+                isAdmin: false
             });
 
             alert("Compte créé avec succès !");
@@ -141,7 +144,7 @@ if (btnLogout) {
     });
 }
 
-// Suivi de l'état de connexion en temps réel
+// Suivi de l'état de connexion en temps réel (avec vérification Firestore pour Admin)
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
@@ -152,12 +155,21 @@ onAuthStateChanged(auth, async (user) => {
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-            userPseudo = userDoc.data().pseudo || "Anonyme";
-            totalSeconds = userDoc.data().totalSeconds || 0;
+            const data = userDoc.data();
+            userPseudo = data.pseudo || "Anonyme";
+            totalSeconds = data.totalSeconds || 0;
             if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+
+            // 🛡️ VÉRIFICATION DU RÔLE ADMIN DANS FIRESTORE (OPTION 2)
+            if (data.isAdmin === true) {
+                estAdminConnecte = true;
+            } else {
+                estAdminConnecte = false;
+            }
         } else {
             userPseudo = user.displayName || "Anonyme";
             totalSeconds = 0;
+            estAdminConnecte = false;
             if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
         }
     } else {
@@ -165,6 +177,12 @@ onAuthStateChanged(auth, async (user) => {
         if (userLoggedOutDiv) userLoggedOutDiv.classList.remove("hidden");
         userPseudo = "Anonyme";
         totalSeconds = 0;
+        estAdminConnecte = false;
+    }
+
+    renderAdminPanel();
+    if (typeof dernieresDonneesMessages !== 'undefined' && dernieresDonneesMessages.length > 0) {
+        afficherMessagesHTML(dernieresDonneesMessages);
     }
 });
 
@@ -207,13 +225,67 @@ let dernieresDonneesMessages = [];
 // 4. LISTE DES MOTS INTERDITS (MULTILANGUE)
 // ==========================================
 const motsInterdits = [
+    // --- FRANÇAIS ---
     "merde", "putain", "connard", "connasse", "salope", "pute", "enculé", "enculée", "fdp", "fils de pute", 
     "nique", "niquer", "bâtard", "bâtarde", "suce", "suceur", "suceuse", "gros con", "ta gueule", "tg", 
     "pd", "pédale", "tarlouze", "chier", "couille", "couilles", "bite", "bougnoule", "nègre", "pouffiasse", 
     "idiot", "imbécile", "crétin", "con", "conne", "zob", "branleur", "branleuse", "branlette", "foutre", 
     "salaud", "chienne", "gouine", "enfoiré", "enfoirée", "poufiasse", "sac à merde", "clochard", "ordure", 
     "charogne", "abruti", "abrutie", "tocard", "tocarde", "gland", "glandeur", "glandu", "faquin",
-    "shit", "fuck", "bitch", "asshole", "cunt", "dick", "pussy", "slut", "whore", "motherfucker", "nigga", "nigger"
+
+    // --- ANGLAIS (ENGLISH) ---
+    "shit", "shitty", "fuck", "fucker", "fucking", "fucked", "ass", "asshole", "bitch", "bitchy", 
+    "bastard", "cunt", "dick", "dickhead", "cock", "pussy", "slut", "whore", "motherfucker", "crap", 
+    "damn", "damned", "bloody", "bollocks", "wanker", "prick", "twat", "bullshit", "sod", "bugger", 
+    "nigger", "nigga", "fag", "faggot", "retard", "stupid", "dumbass", "loser", "suck", "sucks", 
+    "jerk", "piss", "pissed", "cum", "jizz", "boobs", "tits", "porn", "sex", "anal", "orgasm", 
+    "masturbate", "blowjob", "handjob", "deepthroat", "slutty", "whorehouse", "cuntface", "shithead", 
+    "asshat", "douche", "douchebag", "scumbag", "pecker", "twink", "dyke", "tranny", "queer", "kike", 
+    "spic", "chink", "gook", "wop", "wetback", "cracker", "honky",
+
+    // --- ESPAGNOL (SPANISH) ---
+    "mierda", "puta", "puto", "cabrón", "cabron", "gilipollas", "idiota", "estúpido", "estupido", 
+    "imbécil", "imbecil", "pendejo", "pendeja", "chinga", "chingar", "chingada", "coño", "cono", 
+    "carajo", "maricón", "maricon", "marica", "zorra", "culo", "pollas", "polla", "huevón", "huevon", 
+    "mamón", "mamon", "capullo", "boludo", "boluda", "concha", "verga", "pija", "ojete", "orto", 
+    "chupada", "mamada", "putita", "putito", "putón", "puton", "culero", "culera", "pinche", 
+    "chingón", "chingon", "joto", "cagada", "cagar", "cagado", "tarado", "tarada", "retrasado", 
+    "retrasada", "mongolo", "mongola",
+
+    // --- ALLEMAND (GERMAN) ---
+    "scheisse", "scheiße", "arschloch", "arsch", "fotze", "schlampe", "hure", "wichser", "verdammt", 
+    "Hurensohn", "Spast", "spasti", "schwachkopf", "vollidiot", "nutte", "sau", "schwein", "miststück", 
+    "kacke", "verarscht", "pisser", "sackgesicht", "arschgeige", "wixxer", "drecksau", "drecksack", 
+    "schlappschwanz", "arschficker", "hodensack", "möse", "titten", "schwuchtel", "kanacke", "neger", 
+    "judensau", "dummkopf",
+
+    // --- ITALIEN (ITALIAN) ---
+    "merda", "stronzo", "stronza", "cazzo", "vaffanculo", "culo", "fottiti", "puttana", "troia", 
+    "coglione", "cogliona", "bastardo", "bastarda", "frocio", "finocchio", "minchia", "pirla", 
+    "fottere", "porco", "porca", "vacca", "bocchinaro", "pompino", "pezzo di merda", "testa di cazzo", 
+    "rompiballe", "sfigato", "sfigata", "cretino", "cretina", "imbecille", "cornuto", "cornuta", 
+    "schifoso", "schifosa", "zoccola", "scemo", "scema",
+
+    // --- PORTUGAIS (PORTUGUESE) ---
+    "merda", "caralho", "puta", "puto", "filha da puta", "filho da puta", "foda-se", "foder", 
+    "vai tomar no cu", "buceta", "punheta", "viado", "corno", "corna", "otário", "otario", 
+    "imbecil", "retardado", "retardada", "bosta", "cacete", "porra", "desgraçado", "desgraçada", 
+    "rapariga", "quenga", "vagabunda", "pau", "piroca", "boiola", "bicha", "escroto", "escrota", "babaca",
+
+    // --- NÉERLANDAIS (DUTCH) ---
+    "kut", "shit", "godverdomme", "klootzak", "hufter", "hoer", "slet", "mokkel", "tering", 
+    "tyfus", "kanker", "eikel", "lul", "sukkel", "mongool", "homo", "pot", "flikker", "pedo", 
+    "pedofiel", "teringlijer", "tyfustelijer", "lulhannes", "stoephoer", "kutkop", "kakkerlak",
+
+    // --- RUSSE (RUSSIAN - TRANSLITTÉRÉ) ---
+    "blyat", "bliat", "blyad", "suka", "pizda", "pizdat", "nahuy", "nahui", "ebat", "ebal", 
+    "yeban", "eblan", "mudak", "mudaq", "chmo", "gavno", "govno", "pidor", "pidaras", "shluha", 
+    "shluva", "sukin syn", "zasranets", "huj", "hui", "mudila", "zalupa", "bljad",
+
+    // --- ARABE (ARABIC - TRANSLITTÉRÉ) ---
+    "kosom", "ksay", "sharmuta", "sharmouta", "kahba", "kahbe", "zamel", "zebi", "zebb", 
+    "qahba", "ibn al kalb", "kalb", "himar", "khara", "sharmoota", "ahbal", "hmar", "wahsh", 
+    "manayik", "menayik", "sharmout", "kos", "ks", "qahb"
 ];
 
 // ==========================================
@@ -253,16 +325,18 @@ gameCards.forEach(card => {
     card.addEventListener('click', () => {
         const title = card.getAttribute('data-title');
         const url = card.getAttribute('data-url');
-        if(modalTitle) modalTitle.textContent = title;
-        if(gameContainer) gameContainer.innerHTML = `<iframe src="${url}" width="100%" height="650px" allowfullscreen style="border:none; border-radius:10px;"></iframe>`;
-        if(modal) modal.classList.remove('hidden');
+        if (modalTitle) modalTitle.textContent = title;
+        if (gameContainer) gameContainer.innerHTML = `<iframe src="${url}" width="100%" height="650px" allowfullscreen style="border:none; border-radius:10px;"></iframe>`;
+        if (modal) modal.classList.remove('hidden');
     });
 });
 
-if(closeBtn) closeBtn.addEventListener('click', () => {
-    if(modal) modal.classList.add('hidden');
-    if(gameContainer) gameContainer.innerHTML = "";
-});
+if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+        if (modal) modal.classList.add('hidden');
+        if (gameContainer) gameContainer.innerHTML = "";
+    });
+}
 
 window.addEventListener('click', (e) => {
     if (e.target === modal) {
@@ -271,12 +345,14 @@ window.addEventListener('click', (e) => {
     }
 });
 
-if(fsBtn) fsBtn.addEventListener('click', () => {
-    const iframe = gameContainer.querySelector('iframe');
-    if (iframe && iframe.requestFullscreen) {
-        iframe.requestFullscreen();
-    }
-});
+if (fsBtn) {
+    fsBtn.addEventListener('click', () => {
+        const iframe = gameContainer ? gameContainer.querySelector('iframe') : null;
+        if (iframe && iframe.requestFullscreen) {
+            iframe.requestFullscreen();
+        }
+    });
+}
 
 const contactForm = document.getElementById('contact-form');
 const confirmation = document.getElementById('confirmation');
@@ -359,7 +435,6 @@ setInterval(async () => {
             totalTimeEl.textContent = formaterTemps(totalSeconds);
         }
         
-        // Sauvegarde Firebase (1 fois toutes les 15 secondes)
         if (sessionSeconds % 15 === 0) {
             try {
                 await updateDoc(doc(db, "users", currentUser.uid), {
@@ -388,7 +463,7 @@ if (contactForm) {
         }
         setTimeout(() => {
             contactForm.classList.add('hidden');
-            if(confirmation) confirmation.classList.remove('hidden');
+            if (confirmation) confirmation.classList.remove('hidden');
         }, 500); 
     });
 }
@@ -398,7 +473,6 @@ if (contactForm) {
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
-let estAdminConnecte = false;
 
 const adminPanel = document.createElement("div");
 adminPanel.style.display = "none";
@@ -599,13 +673,6 @@ onSnapshot(mutedIpsRef, (snapshot) => {
 if (btnSend && container) {
   btnSend.addEventListener("click", async () => {
     let pseudoSaisi = userPseudo;
-    
-    if (pseudoSaisi.toLowerCase() === "kevin" && !estAdminConnecte) {
-      estAdminConnecte = true;
-      alert("🛡️ Connecté en tant qu'Administrateur !");
-      renderAdminPanel();
-      afficherMessagesHTML(dernieresDonneesMessages);
-    }
 
     if (!estAdminConnecte) {
       await verifierConnexion();
@@ -630,7 +697,7 @@ if (btnSend && container) {
 
     const texteInput = document.getElementById("chat-message");
     const fileInput = document.getElementById("chat-file");
-    let texte = texteInput.value.trim();
+    let texte = texteInput ? texteInput.value.trim() : "";
     const file = fileInput ? fileInput.files[0] : null;
 
     if (!texte && !file) return;
@@ -645,7 +712,7 @@ if (btnSend && container) {
     }
 
     let pseudoFinal = `<strong style="color: var(--accent-color);">${pseudoSaisi}</strong>`;
-    if (estAdminConnecte && pseudoSaisi.toLowerCase() === "kevin") {
+    if (estAdminConnecte) {
       pseudoFinal = `<span style="color: #ff3333; font-weight: bold; text-shadow: 0 0 5px rgba(255,0,0,0.4);">🛡️ ADMIN (${pseudoSaisi})</span>`;
     }
 
@@ -666,13 +733,13 @@ if (btnSend && container) {
       }
       const reader = new FileReader();
       reader.onload = async function(e) {
-        texteInput.value = "";
+        if (texteInput) texteInput.value = "";
         if (fileInput) fileInput.value = "";
         await envoyerMessage(e.target.result);
       };
       reader.readAsDataURL(file);
     } else if (texte !== "") {
-      texteInput.value = ""; 
+      if (texteInput) texteInput.value = ""; 
       await envoyerMessage(texte);
     }
   });
