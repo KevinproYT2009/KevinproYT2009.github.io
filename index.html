@@ -39,20 +39,6 @@
         <section id="auth-section" class="content-section" style="background: var(--card-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <h2>Mon Compte Gamenter</h2>
             
-            <!-- Zone ajoutée pour que le script de connexion fonctionne -->
-            <div id="user-logged-out">
-                <div style="display: flex; flex-direction: column; gap: 10px; max-width: 300px; margin: 0 auto;">
-                    <input type="email" id="auth-email" placeholder="Adresse e-mail" style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color);">
-                    <input type="password" id="auth-password" placeholder="Mot de passe" style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color);">
-                    <input type="text" id="auth-pseudo" placeholder="Pseudo (Inscription)" style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color);">
-                    
-                    <button id="btn-login" style="background: var(--accent-color); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;">Se connecter</button>
-                    <button id="btn-register" style="background: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;">Créer un compte</button>
-                    <button id="btn-google-login" style="background: #db4437; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold;">Se connecter avec Google</button>
-                </div>
-            </div>
-
-            <!-- Ta zone de profil d'origine -->
             <div id="user-logged-in" class="hidden">
                 <p>Connecté en tant que : <strong id="profile-pseudo" style="color: var(--accent-color);"></strong> (<span id="profile-email"></span>)</p>
                 <button id="btn-logout" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Se déconnecter</button>
