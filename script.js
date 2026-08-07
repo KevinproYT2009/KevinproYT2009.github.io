@@ -1,3 +1,8 @@
+onAuthStateChanged(auth, (user) => {
+    if (!user) {
+        window.location.href = "login.html";
+    }
+});
 // ==========================================
 // 1. IMPORTS FIREBASE & AUTH
 // ==========================================
