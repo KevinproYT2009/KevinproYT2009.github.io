@@ -1,14 +1,9 @@
-onAuthStateChanged(auth, (user) => {
-    if (!user) {
-        window.location.href = "login.html";
-    }
-});
 // ==========================================
 // 1. IMPORTS FIREBASE & AUTH
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, deleteDoc, doc, setDoc, getDoc, getDocs, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
@@ -22,7 +17,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
 
 const messagesRef = collection(db, "messages");
 const bannedIpsRef = collection(db, "banned_ips");
@@ -31,169 +25,69 @@ const presenceRef = collection(db, "site_presence");
 const usersRef = collection(db, "users");
 
 // ==========================================
-// 2. GESTION DES COMPTES & AUTHENTIFICATION
+// 2. GESTION DES COMPTES & REDIRECTION LOGIN
 // ==========================================
 let currentUser = null;
 let userPseudo = "Anonyme";
 let estAdminConnecte = false;
 
-const emailInput = document.getElementById("auth-email");
-const passwordInput = document.getElementById("auth-password");
-const pseudoInputAuth = document.getElementById("auth-pseudo");
-const btnRegister = document.getElementById("btn-register");
-const btnLogin = document.getElementById("btn-login");
 const btnLogout = document.getElementById("btn-logout");
-const btnGoogleLogin = document.getElementById("btn-google-login");
-
-const userLoggedOutDiv = document.getElementById("user-logged-out");
 const userLoggedInDiv = document.getElementById("user-logged-in");
 const profilePseudoSpan = document.getElementById("profile-pseudo");
 const profileEmailSpan = document.getElementById("profile-email");
-
-// Connexion Google
-if (btnGoogleLogin) {
-    btnGoogleLogin.addEventListener("click", async () => {
-        try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const user = result.user;
-
-            const userDocRef = doc(db, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
-
-            if (!userDoc.exists()) {
-                let pseudoBase = user.displayName || "Gamer_" + Math.floor(Math.random() * 1000);
-                
-                await setDoc(userDocRef, {
-                    email: user.email,
-                    pseudo: pseudoBase,
-                    totalSeconds: 0,
-                    isAdmin: false
-                });
-            }
-            alert("Connecté avec Google avec succès !");
-        } catch (error) {
-            alert("Erreur de connexion Google : " + error.message);
-        }
-    });
-}
-
-// Inscription classique
-if (btnRegister) {
-    btnRegister.addEventListener("click", async () => {
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
-        const pseudo = pseudoInputAuth.value.trim();
-
-        if (!email || !password || !pseudo) {
-            alert("Remplis tous les champs (email, mot de passe, pseudo).");
-            return;
-        }
-
-        try {
-            const qPseudo = query(usersRef);
-            const querySnapshot = await getDocs(qPseudo);
-            let pseudoPris = false;
-            querySnapshot.forEach((docSnap) => {
-                if (docSnap.data().pseudo && docSnap.data().pseudo.toLowerCase() === pseudo.toLowerCase()) {
-                    pseudoPris = true;
-                }
-            });
-
-            if (pseudoPris) {
-                alert("Ce pseudo est déjà pris, choisis-en un autre !");
-                return;
-            }
-
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-
-            await setDoc(doc(db, "users", user.uid), {
-                email: email,
-                pseudo: pseudo,
-                totalSeconds: 0,
-                isAdmin: false
-            });
-
-            alert("Compte créé avec succès !");
-        } catch (error) {
-            alert("Erreur lors de l'inscription : " + error.message);
-        }
-    });
-}
-
-// Connexion classique
-if (btnLogin) {
-    btnLogin.addEventListener("click", async () => {
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
-
-        if (!email || !password) {
-            alert("Remplis ton e-mail et ton mot de passe.");
-            return;
-        }
-
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            alert("Connecté avec succès !");
-        } catch (error) {
-            alert("Erreur de connexion : " + error.message);
-        }
-    });
-}
 
 // Déconnexion
 if (btnLogout) {
     btnLogout.addEventListener("click", async () => {
         await signOut(auth);
-        alert("Déconnecté.");
+        window.location.href = "login.html";
     });
 }
 
-// Suivi de l'état de connexion en temps réel avec diagnostic complet
+// Redirection automatique & Suivi de l'état de connexion en temps réel
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
-    if (user) {
-        if (userLoggedOutDiv) userLoggedOutDiv.classList.add("hidden");
-        if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
-        if (profileEmailSpan) profileEmailSpan.textContent = user.email;
 
-        try {
-            const userDocRef = doc(db, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
-            
-            if (userDoc.exists()) {
-                const data = userDoc.data();
-                userPseudo = data.pseudo || "Anonyme";
-                totalSeconds = data.totalSeconds || 0;
-                if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+    // 🔒 Redirection automatique vers login.html si non connecté
+    if (!user) {
+        window.location.href = "login.html";
+        return;
+    }
 
-                console.log("--- DIAGNOSTIC AUTH ---");
-                console.log("UID du compte connecté :", user.uid);
-                console.log("Données lues dans Firestore :", data);
+    // 🔓 Si connecté, mise à jour des éléments du profil
+    if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
+    if (profileEmailSpan) profileEmailSpan.textContent = user.email;
 
-                if (data.isAdmin === true) {
-                    estAdminConnecte = true;
-                    console.log("STATUT : ADMINISTRATEUR DÉTECTÉ");
-                } else {
-                    estAdminConnecte = false;
-                    console.log("STATUT : UTILISATEUR SIMPLE (isAdmin n'est pas true)");
-                }
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+            const data = userDoc.data();
+            userPseudo = data.pseudo || "Anonyme";
+            totalSeconds = data.totalSeconds || 0;
+            if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+
+            console.log("--- DIAGNOSTIC AUTH ---");
+            console.log("UID du compte connecté :", user.uid);
+            console.log("Données lues dans Firestore :", data);
+
+            if (data.isAdmin === true) {
+                estAdminConnecte = true;
+                console.log("STATUT : ADMINISTRATEUR DÉTECTÉ");
             } else {
-                console.warn("Aucun document Firestore correspondant à cet UID :", user.uid);
-                userPseudo = user.displayName || "Anonyme";
-                totalSeconds = 0;
                 estAdminConnecte = false;
-                if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+                console.log("STATUT : UTILISATEUR SIMPLE");
             }
-        } catch (error) {
-            console.error("Erreur d'accès à Firestore :", error.message);
+        } else {
+            console.warn("Aucun document Firestore correspondant à cet UID :", user.uid);
+            userPseudo = user.displayName || "Anonyme";
+            totalSeconds = 0;
             estAdminConnecte = false;
+            if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
         }
-    } else {
-        if (userLoggedInDiv) userLoggedInDiv.classList.add("hidden");
-        if (userLoggedOutDiv) userLoggedOutDiv.classList.remove("hidden");
-        userPseudo = "Anonyme";
-        totalSeconds = 0;
+    } catch (error) {
+        console.error("Erreur d'accès à Firestore :", error.message);
         estAdminConnecte = false;
     }
 
