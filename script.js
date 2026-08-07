@@ -144,7 +144,7 @@ if (btnLogout) {
     });
 }
 
-// Suivi de l'état de connexion en temps réel (avec vérification Firestore pour Admin)
+// Suivi de l'état de connexion en temps réel avec diagnostic complet
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
@@ -152,25 +152,37 @@ onAuthStateChanged(auth, async (user) => {
         if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
         if (profileEmailSpan) profileEmailSpan.textContent = user.email;
 
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-            const data = userDoc.data();
-            userPseudo = data.pseudo || "Anonyme";
-            totalSeconds = data.totalSeconds || 0;
-            if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+        try {
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                userPseudo = data.pseudo || "Anonyme";
+                totalSeconds = data.totalSeconds || 0;
+                if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
 
-            // 🛡️ VÉRIFICATION DU RÔLE ADMIN DANS FIRESTORE (OPTION 2)
-            if (data.isAdmin === true) {
-                estAdminConnecte = true;
+                console.log("--- DIAGNOSTIC AUTH ---");
+                console.log("UID du compte connecté :", user.uid);
+                console.log("Données lues dans Firestore :", data);
+
+                if (data.isAdmin === true) {
+                    estAdminConnecte = true;
+                    console.log("STATUT : ADMINISTRATEUR DÉTECTÉ");
+                } else {
+                    estAdminConnecte = false;
+                    console.log("STATUT : UTILISATEUR SIMPLE (isAdmin n'est pas true)");
+                }
             } else {
+                console.warn("Aucun document Firestore correspondant à cet UID :", user.uid);
+                userPseudo = user.displayName || "Anonyme";
+                totalSeconds = 0;
                 estAdminConnecte = false;
+                if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
             }
-        } else {
-            userPseudo = user.displayName || "Anonyme";
-            totalSeconds = 0;
+        } catch (error) {
+            console.error("Erreur d'accès à Firestore :", error.message);
             estAdminConnecte = false;
-            if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
         }
     } else {
         if (userLoggedInDiv) userLoggedInDiv.classList.add("hidden");
