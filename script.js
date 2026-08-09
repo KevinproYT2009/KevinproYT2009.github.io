@@ -27,6 +27,9 @@ const usersRef = collection(db, "users");
 // ==========================================
 // 2. GESTION DES COMPTES & REDIRECTION LOGIN
 // ==========================================
+// 🛑 NOUVEAU : On cache toute la page HTML dès le chargement du script pour éviter de voir les jeux
+document.documentElement.style.display = "none";
+
 let currentUser = null;
 let userPseudo = "Anonyme";
 let estAdminConnecte = false;
@@ -54,16 +57,18 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // NOUVEAU : 🔒 Vérification que l'e-mail a bien été validé
+    // 🔒 Vérification que l'e-mail a bien été validé
     await user.reload();
     if (!user.emailVerified) {
         alert("⚠️ Ton e-mail n'a pas encore été vérifié ! Déconnexion et redirection...");
-        await signOut(auth); // <-- AJOUT DE LA DÉCONNEXION FORCÉE ICI
+        await signOut(auth); 
         window.location.href = "login.html";
         return;
     }
 
-    // 🔓 Si connecté ET vérifié, mise à jour des éléments du profil
+    // 🔓 L'utilisateur est connecté ET vérifié : ON RÉAFFICHE LA PAGE HTML
+    document.documentElement.style.display = "";
+
     if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
     if (profileEmailSpan) profileEmailSpan.textContent = user.email;
 
