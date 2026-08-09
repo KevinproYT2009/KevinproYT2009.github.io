@@ -27,7 +27,7 @@ const usersRef = collection(db, "users");
 // ==========================================
 // 2. GESTION DES COMPTES & REDIRECTION LOGIN
 // ==========================================
-// 🛑 NOUVEAU : On cache toute la page HTML dès le chargement du script pour éviter de voir les jeux
+// Cache la page au chargement pour éviter le flash du contenu non vérifié
 document.documentElement.style.display = "none";
 
 let currentUser = null;
@@ -57,16 +57,16 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // 🔒 Vérification que l'e-mail a bien été validé
+    // 🔒 Vérification que l'e-mail a bien été validé (sauf si connexion Google directe qui valide souvent l'email)
     await user.reload();
-    if (!user.emailVerified) {
+    if (!user.emailVerified && !user.providerData.some(p => p.providerId === 'google.com')) {
         alert("⚠️ Ton e-mail n'a pas encore été vérifié ! Déconnexion et redirection...");
         await signOut(auth); 
         window.location.href = "login.html";
         return;
     }
 
-    // 🔓 L'utilisateur est connecté ET vérifié : ON RÉAFFICHE LA PAGE HTML
+    // 🔓 L'utilisateur est connecté ET vérifié : on réaffiche la page
     document.documentElement.style.display = "";
 
     if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
@@ -78,26 +78,29 @@ onAuthStateChanged(auth, async (user) => {
         
         if (userDoc.exists()) {
             const data = userDoc.data();
-            userPseudo = data.pseudo || "Anonyme";
+            userPseudo = data.pseudo || user.displayName || "Anonyme";
             totalSeconds = data.totalSeconds || 0;
             if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
 
-            console.log("--- DIAGNOSTIC AUTH ---");
-            console.log("UID du compte connecté :", user.uid);
-            console.log("Données lues dans Firestore :", data);
-
             if (data.isAdmin === true) {
                 estAdminConnecte = true;
-                console.log("STATUT : ADMINISTRATEUR DÉTECTÉ");
             } else {
                 estAdminConnecte = false;
-                console.log("STATUT : UTILISATEUR SIMPLE");
             }
         } else {
-            console.warn("Aucun document Firestore correspondant à cet UID :", user.uid);
-            userPseudo = user.displayName || "Anonyme";
+            // Premier chargement (compte créé via Email ou Google sans doc Firestore existant)
+            userPseudo = user.displayName || user.email.split('@')[0] || "Anonyme";
             totalSeconds = 0;
             estAdminConnecte = false;
+
+            await setDoc(userDocRef, {
+                pseudo: userPseudo,
+                email: user.email,
+                totalSeconds: 0,
+                lastPseudoChange: 0,
+                isAdmin: false
+            });
+
             if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
         }
     } catch (error) {
@@ -110,6 +113,49 @@ onAuthStateChanged(auth, async (user) => {
         afficherMessagesHTML(dernieresDonneesMessages);
     }
 });
+
+// ==========================================
+// FONCTION DE CHANGEMENT DE PSEUDO (COOLDOWN 7 JOURS)
+// ==========================================
+window.changerPseudo = async function(nouveauPseudo) {
+    if (!currentUser) {
+        alert("Tu dois être connecté pour changer de pseudo.");
+        return;
+    }
+
+    nouveauPseudo = nouveauPseudo.trim();
+    if (!nouveauPseudo || nouveauPseudo.length < 2) {
+        alert("Le pseudo doit contenir au moins 2 caractères.");
+        return;
+    }
+
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+        const data = userDoc.data();
+        const dernierChangement = data.lastPseudoChange || 0;
+        const maintenant = Date.now();
+        const delai7Jours = 7 * 24 * 60 * 60 * 1000; // 7 jours en millisecondes
+
+        if (maintenant - dernierChangement < delai7Jours) {
+            const tempsRestantMs = delai7Jours - (maintenant - dernierChangement);
+            const joursRestants = Math.ceil(tempsRestantMs / (1000 * 60 * 60 * 24));
+            alert(`⏳ Action impossible : Tu dois attendre encore ${joursRestants} jour(s) avant de pouvoir modifier à nouveau ton pseudo.`);
+            return;
+        }
+
+        // Mise à jour dans Firestore
+        await updateDoc(userDocRef, {
+            pseudo: nouveauPseudo,
+            lastPseudoChange: maintenant
+        });
+
+        userPseudo = nouveauPseudo;
+        if (profilePseudoSpan) profilePseudoSpan.textContent = userPseudo;
+        alert("✅ Ton pseudo a été mis à jour avec succès !");
+    }
+};
 
 // ==========================================
 // 3. DETECTION IP & ANTI-VPN (API V3 PROXYCHECK)
