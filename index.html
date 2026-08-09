@@ -35,7 +35,7 @@
     </header>
 
     <main>
-        <!-- SECTION COMPTE / AUTHENTIFICATION -->
+        <!-- SECTION COMPTE -->
         <section id="auth-section" class="content-section" style="background: var(--card-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
             <h2>Mon Compte Gamenter</h2>
             
@@ -136,12 +136,29 @@
             </div>
         </section>
 
+        <!-- SECTION PARAMÈTRES AVEC MODÈLE 3 (MODIFICATION E-MAIL) -->
         <section id="parametres" class="content-section">
             <h2>Paramètres & Infos</h2>
+
+            <div class="settings-box" style="margin-bottom: 20px; text-align: left; background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <h3>Sécurité du Compte</h3>
+                <p style="margin-top: 5px; font-size: 0.9rem;">Changer d'adresse e-mail (Modèle 3) :</p>
+                <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
+                    <input type="email" id="new-email-input" placeholder="Nouvelle adresse e-mail" style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); flex: 1; min-width: 200px;">
+                    <button id="btn-update-email" style="background: var(--accent-color); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Modifier l'e-mail</button>
+                </div>
+
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--border-color);">
+
+                <p style="font-size: 0.9rem;">Changer de mot de passe :</p>
+                <button id="btn-reset-pass-settings" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 8px;">Recevoir un e-mail de réinitialisation</button>
+            </div>
+
             <div class="settings-box">
                 <h3>Apparence</h3>
                 <p>Gamenter détecte automatiquement le thème de votre ordinateur. Vous pouvez forcer le mode avec l'interrupteur en haut à droite.</p>
             </div>
+
             <div class="settings-box">
                 <h3>À propos</h3>
                 <p>Gamenter est un projet scolaire conçu pour offrir une expérience de jeu rétro fluide.</p>
@@ -159,6 +176,73 @@
         </div>
     </div>
 
+    <!-- SCRIPT FIREBASE COMPLÉMENTAIRE POUR LES PARAMÈTRES DE SÉCURITÉ -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, verifyBeforeUpdateEmail, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
+            authDomain: "gamenter-chat.firebaseapp.com",
+            projectId: "gamenter-chat",
+            storageBucket: "gamenter-chat.firebasestorage.app",
+            messagingSenderId: "136972170017",
+            appId: "1:136972170017:web:3aa57e41907882e1650460"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Modèle 3 : Modification de l'adresse e-mail avec vérification
+        const btnUpdateEmail = document.getElementById("btn-update-email");
+        if (btnUpdateEmail) {
+            btnUpdateEmail.addEventListener("click", async () => {
+                const newEmail = document.getElementById("new-email-input").value.trim();
+                const user = auth.currentUser;
+
+                if (!newEmail) {
+                    alert("Merci de saisir une nouvelle adresse e-mail.");
+                    return;
+                }
+
+                if (!user) {
+                    alert("Tu dois être connecté pour modifier ton e-mail.");
+                    return;
+                }
+
+                try {
+                    await verifyBeforeUpdateEmail(user, newEmail);
+                    await updateDoc(doc(db, "users", user.uid), { email: newEmail });
+                    alert("Un e-mail de confirmation a été envoyé à " + newEmail + ". Clique sur le lien pour valider le changement.");
+                } catch (error) {
+                    alert("Erreur lors de la modification : " + error.message);
+                }
+            });
+        }
+
+        // Réinitialisation du mot de passe depuis les paramètres
+        const btnResetPass = document.getElementById("btn-reset-pass-settings");
+        if (btnResetPass) {
+            btnResetPass.addEventListener("click", async () => {
+                const user = auth.currentUser;
+                if (!user || !user.email) {
+                    alert("Impossible d'obtenir ton adresse e-mail.");
+                    return;
+                }
+
+                try {
+                    await sendPasswordResetEmail(auth, user.email);
+                    alert("Un e-mail de réinitialisation de mot de passe a été envoyé à " + user.email);
+                } catch (error) {
+                    alert("Erreur lors de l'envoi : " + error.message);
+                }
+            });
+        }
+    </script>
+
+    <!-- Script principal du site -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
