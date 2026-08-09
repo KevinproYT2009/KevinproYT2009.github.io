@@ -57,7 +57,8 @@ onAuthStateChanged(auth, async (user) => {
     // NOUVEAU : 🔒 Vérification que l'e-mail a bien été validé
     await user.reload();
     if (!user.emailVerified) {
-        alert("⚠️ Ton e-mail n'a pas encore été vérifié ! Redirection vers la page de connexion.");
+        alert("⚠️ Ton e-mail n'a pas encore été vérifié ! Déconnexion et redirection...");
+        await signOut(auth); // <-- AJOUT DE LA DÉCONNEXION FORCÉE ICI
         window.location.href = "login.html";
         return;
     }
