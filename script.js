@@ -54,7 +54,15 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // 🔓 Si connecté, mise à jour des éléments du profil
+    // NOUVEAU : 🔒 Vérification que l'e-mail a bien été validé
+    await user.reload();
+    if (!user.emailVerified) {
+        alert("⚠️ Ton e-mail n'a pas encore été vérifié ! Redirection vers la page de connexion.");
+        window.location.href = "login.html";
+        return;
+    }
+
+    // 🔓 Si connecté ET vérifié, mise à jour des éléments du profil
     if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
     if (profileEmailSpan) profileEmailSpan.textContent = user.email;
 
