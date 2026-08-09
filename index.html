@@ -41,16 +41,18 @@
             
             <div id="user-logged-in" class="hidden">
                 <p>Connecté en tant que : <strong id="profile-pseudo" style="color: var(--accent-color);"></strong> (<span id="profile-email"></span>)</p>
-                <button id="btn-logout" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Se déconnecter</button>
+                <button id="btn-logout" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px;">Se déconnecter</button>
             </div>
         </section>
 
+        <!-- ACCUEIL -->
         <section id="accueil" class="accueil-section">
             <h2>Bienvenue sur Gamenter !</h2>
             <p>Plongez dans la nostalgie avec notre sélection de jeux rétro jouables directement dans votre navigateur. Aucune installation n'est requise, juste du plaisir instantané !</p>
             <a href="#jeux" class="cta-button">Commencer à jouer</a>
         </section>
 
+        <!-- JEUX -->
         <section id="jeux" class="game-grid">
             <div class="game-card" data-title="Tetris" data-url="https://djblue.github.io/tetris/">
                 <img src="tetris.png" alt="Icone Tetris" class="game-icon">
@@ -90,7 +92,7 @@
             </div>
         </section>
 
-        <!-- SECTION CHAT -->
+        <!-- CHAT GLOBAL -->
         <section id="chat" class="content-section">
             <h2>Chat Global</h2>
             <p>Discute et partage tes fichiers en direct !</p>
@@ -113,6 +115,7 @@
             </div>
         </section>
 
+        <!-- SUPPORT -->
         <section id="support" class="content-section">
             <h2>Support Technique</h2>
             <p>Un bug ou une question ? Contactez-nous via ce formulaire :</p>
@@ -136,37 +139,43 @@
             </div>
         </section>
 
-        <!-- SECTION PARAMÈTRES AVEC MODÈLE 3 (MODIFICATION E-MAIL) -->
+        <!-- SECTION PARAMÈTRES (UNIFIÉE ET NETTOYÉE) -->
         <section id="parametres" class="content-section">
             <h2>Paramètres & Infos</h2>
 
-            <div class="settings-box" style="margin-bottom: 20px; text-align: left; background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                <h3>Sécurité du Compte</h3>
-                <p style="margin-top: 5px; font-size: 0.9rem;">Changer d'adresse e-mail (Modèle 3) :</p>
-                <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
-                    <input type="email" id="new-email-input" placeholder="Nouvelle adresse e-mail" style="padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); flex: 1; min-width: 200px;">
-                    <button id="btn-update-email" style="background: var(--accent-color); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Modifier l'e-mail</button>
+            <!-- 1. Sécurité du Compte -->
+            <div style="text-align: left; margin-bottom: 20px;">
+                <h3 style="color: var(--accent-color); margin-bottom: 10px;">Sécurité du Compte</h3>
+                <p style="font-size: 0.9rem; margin-bottom: 8px;">Changer d'adresse e-mail :</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <input type="email" id="new-email-input" placeholder="Nouvelle adresse e-mail" style="padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); flex: 1; min-width: 200px;">
+                    <button id="btn-update-email" style="background: var(--accent-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Modifier l'e-mail</button>
                 </div>
 
-                <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--border-color);">
-
-                <p style="font-size: 0.9rem;">Changer de mot de passe :</p>
-                <button id="btn-reset-pass-settings" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 8px;">Recevoir un e-mail de réinitialisation</button>
+                <p style="font-size: 0.9rem; margin-bottom: 8px;">Changer de mot de passe :</p>
+                <button id="btn-reset-pass-settings" style="background: var(--accent-color); color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Recevoir un e-mail de réinitialisation</button>
             </div>
 
-            <div class="settings-box">
-                <h3>Apparence</h3>
-                <p>Gamenter détecte automatiquement le thème de votre ordinateur. Vous pouvez forcer le mode avec l'interrupteur en haut à droite.</p>
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+            <!-- 2. Apparence -->
+            <div style="text-align: left; margin-bottom: 20px;">
+                <h3 style="color: var(--accent-color); margin-bottom: 10px;">Apparence</h3>
+                <p style="font-size: 0.9rem; line-height: 1.5;">Gamenter détecte automatiquement le thème de votre ordinateur. Vous pouvez forcer le mode avec l'interrupteur en haut à droite.</p>
             </div>
 
-            <div class="settings-box">
-                <h3>À propos</h3>
-                <p>Gamenter est un projet scolaire conçu pour offrir une expérience de jeu rétro fluide.</p>
-                <p><strong>Version :</strong> 2.0</p>
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+            <!-- 3. À propos -->
+            <div style="text-align: left;">
+                <h3 style="color: var(--accent-color); margin-bottom: 10px;">À propos</h3>
+                <p style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 5px;">Gamenter est un projet scolaire conçu pour offrir une expérience de jeu rétro fluide.</p>
+                <p style="font-size: 0.9rem;"><strong>Version :</strong> 2.0</p>
             </div>
         </section>
     </main>
 
+    <!-- MODAL DE JEU -->
     <div id="game-modal" class="hidden">
         <div class="modal-content">
             <span id="close-button">&times;</span>
@@ -176,7 +185,7 @@
         </div>
     </div>
 
-    <!-- SCRIPT FIREBASE COMPLÉMENTAIRE POUR LES PARAMÈTRES DE SÉCURITÉ -->
+    <!-- SCRIPT FIREBASE DÉDIÉ AUX PARAMÈTRES DE SÉCURITÉ -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -195,7 +204,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // Modèle 3 : Modification de l'adresse e-mail avec vérification
+        // Modification de l'adresse e-mail avec confirmation
         const btnUpdateEmail = document.getElementById("btn-update-email");
         if (btnUpdateEmail) {
             btnUpdateEmail.addEventListener("click", async () => {
@@ -222,7 +231,7 @@
             });
         }
 
-        // Réinitialisation du mot de passe depuis les paramètres
+        // Réinitialisation du mot de passe
         const btnResetPass = document.getElementById("btn-reset-pass-settings");
         if (btnResetPass) {
             btnResetPass.addEventListener("click", async () => {
@@ -242,7 +251,7 @@
         }
     </script>
 
-    <!-- Script principal du site -->
+    <!-- Script JS Principal -->
     <script type="module" src="script.js"></script>
 </body>
 </html>
