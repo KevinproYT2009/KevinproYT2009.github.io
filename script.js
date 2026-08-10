@@ -706,22 +706,16 @@ if (btnSend && container) {
 }
 
 // ==========================================
-// 8. SALON PRIVÉ IA (Cascade complète uniquement Gemini : Haute à Basse gamme)
+// 8. SALON PRIVÉ IA (Cascade avec les vrais modèles officiels)
 // ==========================================
 let unsubIa = null;
 
+// Liste officielle des vrais modèles Gemini valides pour l'API
 const modelesCascade = [
-    "gemini-3.5-pro",
-    "gemini-3.1-pro",
-    "gemini-2.5-pro",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2-flash",
-    "gemini-2-flash-lite"
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite"
 ];
 
 async function appelerIAAvecSecours(contentsArray, systemInstructionText, apiKey) {
@@ -743,14 +737,16 @@ async function appelerIAAvecSecours(contentsArray, systemInstructionText, apiKey
                     texte: data.candidates[0].content.parts[0].text,
                     modeleUtilise: modele
                 };
+            } else {
+                console.warn(`Modèle ${modele} rejeté (Erreur HTTP ${response.status}) :`, data);
             }
         } catch (error) {
-            console.warn(`Modèle ${modele} indisponible, passage au suivant...`);
+            console.warn(`Erreur réseau avec le modèle ${modele}:`, error);
         }
     }
 
     return {
-        texte: "Oups, tous les serveurs d'IA sont saturés ou les quotas sont atteints pour le moment. Réessaie un peu plus tard !",
+        texte: "Oups, tous les serveurs d'IA sont saturés ou ta clé API rencontre un problème (403/404). Vérifie ta clé dans Google AI Studio !",
         modeleUtilise: "aucun"
     };
 }
