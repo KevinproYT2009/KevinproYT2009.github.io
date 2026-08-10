@@ -735,15 +735,15 @@ if (btnSend && container) {
 }
 
 // ==========================================
-// 8. SALON PRIVÉ IA (Avec Cascade de Modèles & Mémoire)
+// 8. SALON PRIVÉ IA (Avec Cascade Corrigée & Mémoire)
 // ==========================================
 let unsubIa = null; // Variable pour éviter les doublons d'écoute Firestore
 
-// Liste des modèles testés du plus puissant au plus généreux en quota
+// Liste des modèles avec le Flash Lite en premier (15 RPM / 500 RPD) pour éviter les saturations
 const modelesCascade = [
-    "gemini-3.5-flash",       // 1. Plus intelligent (20/jour)
-    "gemini-3.5-flash-lite",  // 2. Bon compromis (500/jour)
-    "gemma-4-28b"             // 3. Modèle massif (14 400/jour)
+    "gemini-3.5-flash-lite",  // 1. Bon compromis (15 req/min, 500/jour)
+    "gemini-3.5-flash",       // 2. Plus intelligent en secours (5 req/min, 20/jour)
+    "gemma-4-28b"             // 3. Modèle massif en secours final
 ];
 
 async function appelerIAAvecSecours(contentsArray, systemInstructionText, apiKey) {
