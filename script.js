@@ -112,6 +112,9 @@ onAuthStateChanged(auth, async (user) => {
     if (typeof dernieresDonneesMessages !== 'undefined' && dernieresDonneesMessages.length > 0) {
         afficherMessagesHTML(dernieresDonneesMessages);
     }
+    
+    // Initialiser le salon IA une fois que le joueur est bien chargé
+    initAiChat();
 });
 
 // ==========================================
@@ -729,4 +732,158 @@ if (btnSend && container) {
     dernieresDonneesMessages = snapshot.docs;
     afficherMessagesHTML(dernieresDonneesMessages);
   });
+}
+
+// ==========================================
+// 8. SALON PRIVÉ IA (Avec Cascade de Modèles & Mémoire)
+// ==========================================
+let unsubIa = null; // Variable pour éviter les doublons d'écoute Firestore
+
+// Liste des modèles testés du plus puissant au plus généreux en quota
+const modelesCascade = [
+    "gemini-3.5-flash",       // 1. Plus intelligent (20/jour)
+    "gemini-3.5-flash-lite",  // 2. Bon compromis (500/jour)
+    "gemma-4-28b"             // 3. Modèle massif (14 400/jour)
+];
+
+async function appelerIAAvecSecours(contentsArray, systemInstructionText, apiKey) {
+    for (const modele of modelesCascade) {
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modele}:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemInstructionText }] },
+                    contents: contentsArray
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                return {
+                    texte: data.candidates[0].content.parts[0].text,
+                    modeleUtilise: modele
+                };
+            }
+        } catch (error) {
+            console.warn(`Modèle ${modele} indisponible, passage au suivant...`);
+        }
+    }
+
+    return {
+        texte: "Oups, tous les serveurs d'IA sont saturés pour le moment. Réessaie un peu plus tard !",
+        modeleUtilise: "aucun"
+    };
+}
+
+function initAiChat() {
+    const messagesIaContainer = document.getElementById("messages-ia-container");
+    let chatSendIa = document.getElementById("chat-send-ia");
+    const GEMINI_API_KEY = "AIzaSyCDDzlSjyIDXG122phUrw-ePXpD4YZadwA";
+
+    if (!messagesIaContainer || !chatSendIa || !currentUser) return;
+
+    // Collection unique basée sur l'ID de l'utilisateur (UID) au lieu du pseudo pour ne jamais perdre l'historique
+    const nomCollectionIA = "messages_ia_" + currentUser.uid;
+    const messagesIaRef = collection(db, nomCollectionIA);
+    
+    // Nettoyer l'ancienne écoute si la fonction est rappelée
+    if (unsubIa) unsubIa();
+
+    // Récupérer et afficher l'historique complet
+    const qIa = query(messagesIaRef, orderBy("timestamp", "asc"));
+    
+    unsubIa = onSnapshot(qIa, (snapshot) => {
+        messagesIaContainer.innerHTML = "";
+        if (snapshot.empty) {
+            messagesIaContainer.innerHTML = `<p style="color: #888; font-style: italic; text-align: center;">Démarre la discussion avec l'IA...</p>`;
+        }
+        
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const couleur = data.role === "model" ? "#00ffcc" : "#ffffff";
+            
+            // Affichage du nom et du modèle utilisé entre parenthèses si disponible
+            let nom = "🤖 IA Gamenter";
+            if (data.role === "model") {
+                if (data.modele && data.modele !== "aucun") {
+                    nom = `🤖 IA Gamenter <span style="font-size: 0.75rem; opacity: 0.7;">(${data.modele})</span>`;
+                }
+            } else {
+                nom = userPseudo;
+            }
+
+            messagesIaContainer.innerHTML += `<p style="color: ${couleur}; margin: 5px 0; word-break: break-word;"><strong>${nom} :</strong> ${data.texte}</p>`;
+        });
+        messagesIaContainer.scrollTop = messagesIaContainer.scrollHeight;
+    });
+
+    // Remplacer le bouton par un clone pour supprimer d'éventuels anciens eventListeners (évite l'envoi en double)
+    const newChatSendIa = chatSendIa.cloneNode(true);
+    chatSendIa.parentNode.replaceChild(newChatSendIa, chatSendIa);
+
+    // Fonction d'envoi du message à l'IA
+    newChatSendIa.addEventListener("click", async () => {
+        const msgInput = document.getElementById("chat-message-ia");
+        const texte = msgInput.value.trim();
+        if (texte === "") return;
+
+        // 1. Mettre en pause l'interface
+        msgInput.value = "";
+        msgInput.placeholder = "L'IA réfléchit...";
+        msgInput.disabled = true;
+        newChatSendIa.disabled = true;
+        
+        // 2. Sauvegarder la question du joueur
+        await addDoc(messagesIaRef, {
+            texte: texte,
+            role: "user",
+            timestamp: serverTimestamp()
+        });
+
+        // 3. Récupérer l'historique (15 derniers messages) pour donner du contexte à l'IA
+        const qHistory = query(messagesIaRef, orderBy("timestamp", "desc"), limit(15));
+        const historySnap = await getDocs(qHistory);
+        
+        let contentsArray = [];
+        historySnap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if(data.texte) {
+                 contentsArray.unshift({
+                    role: data.role === "model" ? "model" : "user",
+                    parts: [{ text: data.texte }]
+                });
+            }
+        });
+
+        const systemInstructionText = "Tu es l'assistant virtuel intégré à Gamenter, un projet de jeux rétro et utilitaires créé par Kévin et Lucas. Tu dois être sympathique, tutoyer le joueur, et répondre de manière concise.";
+
+        // 4. Appel de la cascade de modèles d'IA avec secours automatique
+        const resultatIA = await appelerIAAvecSecours(contentsArray, systemInstructionText, GEMINI_API_KEY);
+
+        // 5. Sauvegarder la réponse de l'IA et le modèle qui l'a générée
+        await addDoc(messagesIaRef, {
+            texte: resultatIA.texte,
+            role: "model",
+            modele: resultatIA.modeleUtilise,
+            timestamp: serverTimestamp()
+        });
+
+        // 6. Réactiver l'interface
+        msgInput.disabled = false;
+        newChatSendIa.disabled = false;
+        msgInput.placeholder = "Pose ta question à l'IA...";
+        msgInput.focus();
+    });
+
+    // Permettre l'envoi avec la touche Entrée
+    const msgInputIa = document.getElementById("chat-message-ia");
+    if (msgInputIa) {
+        msgInputIa.addEventListener("keypress", (e) => {
+            if (e.key === "Enter" && !newChatSendIa.disabled) {
+                newChatSendIa.click();
+            }
+        });
+    }
 }
