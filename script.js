@@ -27,7 +27,6 @@ const usersRef = collection(db, "users");
 // ==========================================
 // 2. GESTION DES COMPTES & REDIRECTION LOGIN
 // ==========================================
-// Cache la page au chargement pour éviter le flash du contenu non vérifié
 document.documentElement.style.display = "none";
 
 let currentUser = null;
@@ -39,7 +38,6 @@ const userLoggedInDiv = document.getElementById("user-logged-in");
 const profilePseudoSpan = document.getElementById("profile-pseudo");
 const profileEmailSpan = document.getElementById("profile-email");
 
-// Déconnexion
 if (btnLogout) {
     btnLogout.addEventListener("click", async () => {
         await signOut(auth);
@@ -47,17 +45,14 @@ if (btnLogout) {
     });
 }
 
-// Redirection automatique & Suivi de l'état de connexion en temps réel
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
 
-    // 🔒 Redirection automatique vers login.html si non connecté
     if (!user) {
         window.location.href = "login.html";
         return;
     }
 
-    // 🔒 Vérification que l'e-mail a bien été validé (sauf si connexion Google directe qui valide souvent l'email)
     await user.reload();
     if (!user.emailVerified && !user.providerData.some(p => p.providerId === 'google.com')) {
         alert("⚠️ Ton e-mail n'a pas encore été vérifié ! Déconnexion et redirection...");
@@ -66,7 +61,6 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // 🔓 L'utilisateur est connecté ET vérifié : on réaffiche la page
     document.documentElement.style.display = "";
 
     if (userLoggedInDiv) userLoggedInDiv.classList.remove("hidden");
@@ -88,7 +82,6 @@ onAuthStateChanged(auth, async (user) => {
                 estAdminConnecte = false;
             }
         } else {
-            // Premier chargement (compte créé via Email ou Google sans doc Firestore existant)
             userPseudo = user.displayName || user.email.split('@')[0] || "Anonyme";
             totalSeconds = 0;
             estAdminConnecte = false;
@@ -113,12 +106,11 @@ onAuthStateChanged(auth, async (user) => {
         afficherMessagesHTML(dernieresDonneesMessages);
     }
     
-    // Initialiser le salon IA une fois que le joueur est bien chargé
     initAiChat();
 });
 
 // ==========================================
-// FONCTION DE CHANGEMENT DE PSEUDO (COOLDOWN 7 JOURS)
+// CHANGEMENT DE PSEUDO
 // ==========================================
 window.changerPseudo = async function(nouveauPseudo) {
     if (!currentUser) {
@@ -139,16 +131,15 @@ window.changerPseudo = async function(nouveauPseudo) {
         const data = userDoc.data();
         const dernierChangement = data.lastPseudoChange || 0;
         const maintenant = Date.now();
-        const delai7Jours = 7 * 24 * 60 * 60 * 1000; // 7 jours en millisecondes
+        const delai7Jours = 7 * 24 * 60 * 60 * 1000;
 
         if (maintenant - dernierChangement < delai7Jours) {
             const tempsRestantMs = delai7Jours - (maintenant - dernierChangement);
             const joursRestants = Math.ceil(tempsRestantMs / (1000 * 60 * 60 * 24));
-            alert(`⏳ Action impossible : Tu dois attendre encore ${joursRestants} jour(s) avant de pouvoir modifier à nouveau ton pseudo.`);
+            alert(`⏳ Action impossible : Tu dois attendre encore ${joursRestants} jour(s) avant de modifier ton pseudo.`);
             return;
         }
 
-        // Mise à jour dans Firestore
         await updateDoc(userDocRef, {
             pseudo: nouveauPseudo,
             lastPseudoChange: maintenant
@@ -161,7 +152,7 @@ window.changerPseudo = async function(nouveauPseudo) {
 };
 
 // ==========================================
-// 3. DETECTION IP & ANTI-VPN (API V3 PROXYCHECK)
+// 3. DETECTION IP & ANTI-VPN
 // ==========================================
 let userIp = "IP_Inconnue";
 let isVPN = false;
@@ -196,18 +187,15 @@ let listMuted = [];
 let dernieresDonneesMessages = [];
 
 // ==========================================
-// 4. LISTE DES MOTS INTERDITS (MULTILANGUE)
+// 4. LISTE DES MOTS INTERDITS
 // ==========================================
 const motsInterdits = [
-    // --- FRANÇAIS ---
     "merde", "putain", "connard", "connasse", "salope", "pute", "enculé", "enculée", "fdp", "fils de pute", 
     "nique", "niquer", "bâtard", "bâtarde", "suce", "suceur", "suceuse", "gros con", "ta gueule", "tg", 
     "pd", "pédale", "tarlouze", "chier", "couille", "couilles", "bite", "bougnoule", "nègre", "pouffiasse", 
     "idiot", "imbécile", "crétin", "con", "conne", "zob", "branleur", "branleuse", "branlette", "foutre", 
     "salaud", "chienne", "gouine", "enfoiré", "enfoirée", "poufiasse", "sac à merde", "clochard", "ordure", 
     "charogne", "abruti", "abrutie", "tocard", "tocarde", "gland", "glandeur", "glandu", "faquin",
-
-    // --- ANGLAIS (ENGLISH) ---
     "shit", "shitty", "fuck", "fucker", "fucking", "fucked", "ass", "asshole", "bitch", "bitchy", 
     "bastard", "cunt", "dick", "dickhead", "cock", "pussy", "slut", "whore", "motherfucker", "crap", 
     "damn", "damned", "bloody", "bollocks", "wanker", "prick", "twat", "bullshit", "sod", "bugger", 
@@ -216,8 +204,6 @@ const motsInterdits = [
     "masturbate", "blowjob", "handjob", "deepthroat", "slutty", "whorehouse", "cuntface", "shithead", 
     "asshat", "douche", "douchebag", "scumbag", "pecker", "twink", "dyke", "tranny", "queer", "kike", 
     "spic", "chink", "gook", "wop", "wetback", "cracker", "honky",
-
-    // --- ESPAGNOL (SPANISH) ---
     "mierda", "puta", "puto", "cabrón", "cabron", "gilipollas", "idiota", "estúpido", "estupido", 
     "imbécil", "imbecil", "pendejo", "pendeja", "chinga", "chingar", "chingada", "coño", "cono", 
     "carajo", "maricón", "maricon", "marica", "zorra", "culo", "pollas", "polla", "huevón", "huevon", 
@@ -225,45 +211,33 @@ const motsInterdits = [
     "chupada", "mamada", "putita", "putito", "putón", "puton", "culero", "culera", "pinche", 
     "chingón", "chingon", "joto", "cagada", "cagar", "cagado", "tarado", "tarada", "retrasado", 
     "retrasada", "mongolo", "mongola",
-
-    // --- ALLEMAND (GERMAN) ---
     "scheisse", "scheiße", "arschloch", "arsch", "fotze", "schlampe", "hure", "wichser", "verdammt", 
     "Hurensohn", "Spast", "spasti", "schwachkopf", "vollidiot", "nutte", "sau", "schwein", "miststück", 
     "kacke", "verarscht", "pisser", "sackgesicht", "arschgeige", "wixxer", "drecksau", "drecksack", 
     "schlappschwanz", "arschficker", "hodensack", "möse", "titten", "schwuchtel", "kanacke", "neger", 
     "judensau", "dummkopf",
-
-    // --- ITALIEN (ITALIAN) ---
     "merda", "stronzo", "stronza", "cazzo", "vaffanculo", "culo", "fottiti", "puttana", "troia", 
     "coglione", "cogliona", "bastardo", "bastarda", "frocio", "finocchio", "minchia", "pirla", 
     "fottere", "porco", "porca", "vacca", "bocchinaro", "pompino", "pezzo di merda", "testa di cazzo", 
     "rompiballe", "sfigato", "sfigata", "cretino", "cretina", "imbecille", "cornuto", "cornuta", 
     "schifoso", "schifosa", "zoccola", "scemo", "scema",
-
-    // --- PORTUGAIS (PORTUGUESE) ---
-    "merda", "caralho", "puta", "puto", "filha da puta", "filho da puta", "foda-se", "foder", 
+    "caralho", "filha da puta", "filho da puta", "foda-se", "foder", 
     "vai tomar no cu", "buceta", "punheta", "viado", "corno", "corna", "otário", "otario", 
-    "imbecil", "retardado", "retardada", "bosta", "cacete", "porra", "desgraçado", "desgraçada", 
+    "retardado", "retardada", "bosta", "cacete", "porra", "desgraçado", "desgraçada", 
     "rapariga", "quenga", "vagabunda", "pau", "piroca", "boiola", "bicha", "escroto", "escrota", "babaca",
-
-    // --- NÉERLANDAIS (DUTCH) ---
-    "kut", "shit", "godverdomme", "klootzak", "hufter", "hoer", "slet", "mokkel", "tering", 
+    "kut", "godverdomme", "klootzak", "hufter", "hoer", "slet", "mokkel", "tering", 
     "tyfus", "kanker", "eikel", "lul", "sukkel", "mongool", "homo", "pot", "flikker", "pedo", 
     "pedofiel", "teringlijer", "tyfustelijer", "lulhannes", "stoephoer", "kutkop", "kakkerlak",
-
-    // --- RUSSE (RUSSIAN - TRANSLITTÉRÉ) ---
     "blyat", "bliat", "blyad", "suka", "pizda", "pizdat", "nahuy", "nahui", "ebat", "ebal", 
     "yeban", "eblan", "mudak", "mudaq", "chmo", "gavno", "govno", "pidor", "pidaras", "shluha", 
     "shluva", "sukin syn", "zasranets", "huj", "hui", "mudila", "zalupa", "bljad",
-
-    // --- ARABE (ARABIC - TRANSLITTÉRÉ) ---
     "kosom", "ksay", "sharmuta", "sharmouta", "kahba", "kahbe", "zamel", "zebi", "zebb", 
     "qahba", "ibn al kalb", "kalb", "himar", "khara", "sharmoota", "ahbal", "hmar", "wahsh", 
     "manayik", "menayik", "sharmout", "kos", "ks", "qahb"
 ];
 
 // ==========================================
-// 5. CODE SITE, JEUX, CAPTCHA & COMPTEURS DE TEMPS CLOUD
+// 5. CODE SITE, JEUX, CAPTCHA & TEMPS CLOUD
 // ==========================================
 const toggleBtn = document.getElementById('toggleBtn');
 function applyTheme() {
@@ -343,7 +317,6 @@ function genererCalcul() {
     }
 }
 
-// Compteur de joueurs réel via Firestore
 const liveElement = document.getElementById('nb-live');
 const sessionId = "user_" + Math.random().toString(36).substring(2, 9);
 
@@ -377,7 +350,6 @@ onSnapshot(presenceRef, (snapshot) => {
     if (liveElement) liveElement.textContent = actifsCount;
 });
 
-// Compteurs de temps (Session locale & Total Cloud synchronisé)
 let sessionSeconds = 0;
 let totalSeconds = 0;
 
@@ -443,7 +415,7 @@ if (contactForm) {
 }
 
 // ==========================================
-// 6. CHAT ET PANNEAU ADMIN (EN DIRECT)
+// 6. CHAT ET PANNEAU ADMIN
 // ==========================================
 const btnSend = document.getElementById("chat-send");
 const container = document.getElementById("messages-container");
@@ -676,7 +648,6 @@ if (btnSend && container) {
 
     if (!texte && !file) return;
 
-    // Censure
     if (texte !== "") {
         motsInterdits.forEach(mot => {
             const regex = new RegExp(`\\b${mot}\\b`, 'gi');
@@ -735,15 +706,22 @@ if (btnSend && container) {
 }
 
 // ==========================================
-// 8. SALON PRIVÉ IA (Avec Cascade Corrigée & Mémoire)
+// 8. SALON PRIVÉ IA (Cascade complète uniquement Gemini : Haute à Basse gamme)
 // ==========================================
-let unsubIa = null; // Variable pour éviter les doublons d'écoute Firestore
+let unsubIa = null;
 
-// Liste des modèles avec le Flash Lite en premier (15 RPM / 500 RPD) pour éviter les saturations
 const modelesCascade = [
-    "gemini-3.5-flash-lite",  // 1. Bon compromis (15 req/min, 500/jour)
-    "gemini-3.5-flash",       // 2. Plus intelligent en secours (5 req/min, 20/jour)
-    "gemma-4-28b"             // 3. Modèle massif en secours final
+    "gemini-3.5-pro",
+    "gemini-3.1-pro",
+    "gemini-2.5-pro",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2-flash",
+    "gemini-2-flash-lite"
 ];
 
 async function appelerIAAvecSecours(contentsArray, systemInstructionText, apiKey) {
@@ -772,7 +750,7 @@ async function appelerIAAvecSecours(contentsArray, systemInstructionText, apiKey
     }
 
     return {
-        texte: "Oups, tous les serveurs d'IA sont saturés pour le moment. Réessaie un peu plus tard !",
+        texte: "Oups, tous les serveurs d'IA sont saturés ou les quotas sont atteints pour le moment. Réessaie un peu plus tard !",
         modeleUtilise: "aucun"
     };
 }
@@ -784,14 +762,11 @@ function initAiChat() {
 
     if (!messagesIaContainer || !chatSendIa || !currentUser) return;
 
-    // Collection unique basée sur l'ID de l'utilisateur (UID) au lieu du pseudo pour ne jamais perdre l'historique
     const nomCollectionIA = "messages_ia_" + currentUser.uid;
     const messagesIaRef = collection(db, nomCollectionIA);
     
-    // Nettoyer l'ancienne écoute si la fonction est rappelée
     if (unsubIa) unsubIa();
 
-    // Récupérer et afficher l'historique complet
     const qIa = query(messagesIaRef, orderBy("timestamp", "asc"));
     
     unsubIa = onSnapshot(qIa, (snapshot) => {
@@ -804,7 +779,6 @@ function initAiChat() {
             const data = docSnap.data();
             const couleur = data.role === "model" ? "#00ffcc" : "#ffffff";
             
-            // Affichage du nom et du modèle utilisé entre parenthèses si disponible
             let nom = "🤖 IA Gamenter";
             if (data.role === "model") {
                 if (data.modele && data.modele !== "aucun") {
@@ -819,30 +793,25 @@ function initAiChat() {
         messagesIaContainer.scrollTop = messagesIaContainer.scrollHeight;
     });
 
-    // Remplacer le bouton par un clone pour supprimer d'éventuels anciens eventListeners (évite l'envoi en double)
     const newChatSendIa = chatSendIa.cloneNode(true);
     chatSendIa.parentNode.replaceChild(newChatSendIa, chatSendIa);
 
-    // Fonction d'envoi du message à l'IA
     newChatSendIa.addEventListener("click", async () => {
         const msgInput = document.getElementById("chat-message-ia");
         const texte = msgInput.value.trim();
         if (texte === "") return;
 
-        // 1. Mettre en pause l'interface
         msgInput.value = "";
         msgInput.placeholder = "L'IA réfléchit...";
         msgInput.disabled = true;
         newChatSendIa.disabled = true;
         
-        // 2. Sauvegarder la question du joueur
         await addDoc(messagesIaRef, {
             texte: texte,
             role: "user",
             timestamp: serverTimestamp()
         });
 
-        // 3. Récupérer l'historique (15 derniers messages) pour donner du contexte à l'IA
         const qHistory = query(messagesIaRef, orderBy("timestamp", "desc"), limit(15));
         const historySnap = await getDocs(qHistory);
         
@@ -859,10 +828,8 @@ function initAiChat() {
 
         const systemInstructionText = "Tu es l'assistant virtuel intégré à Gamenter, un projet de jeux rétro et utilitaires créé par Kévin et Lucas. Tu dois être sympathique, tutoyer le joueur, et répondre de manière concise.";
 
-        // 4. Appel de la cascade de modèles d'IA avec secours automatique
         const resultatIA = await appelerIAAvecSecours(contentsArray, systemInstructionText, GEMINI_API_KEY);
 
-        // 5. Sauvegarder la réponse de l'IA et le modèle qui l'a générée
         await addDoc(messagesIaRef, {
             texte: resultatIA.texte,
             role: "model",
@@ -870,14 +837,12 @@ function initAiChat() {
             timestamp: serverTimestamp()
         });
 
-        // 6. Réactiver l'interface
         msgInput.disabled = false;
         newChatSendIa.disabled = false;
         msgInput.placeholder = "Pose ta question à l'IA...";
         msgInput.focus();
     });
 
-    // Permettre l'envoi avec la touche Entrée
     const msgInputIa = document.getElementById("chat-message-ia");
     if (msgInputIa) {
         msgInputIa.addEventListener("keypress", (e) => {
