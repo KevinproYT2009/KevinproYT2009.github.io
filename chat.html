@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -135,4 +136,143 @@
     <!-- Ton Script JS Principal pour la base de données et l'IA -->
     <script type="module" src="script.js"></script>
 </body>
+=======
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gamenter - Chat et IA">
+    <title>Gamenter - Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="Image/lettre-g.png">
+    <style>
+        /* Styles pour les onglets des salons */
+        .chat-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .chat-tab-btn {
+            background: var(--card-bg, #1e1e1e);
+            color: var(--text-color, #ffffff);
+            border: 2px solid var(--border-color, #333);
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        .chat-tab-btn.active {
+            background: var(--accent-color, #00ffcc);
+            color: #121212;
+            border-color: var(--accent-color, #00ffcc);
+            box-shadow: 0 0 10px var(--accent-color, #00ffcc);
+        }
+        .chat-tab-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Masquer le salon inactif par défaut */
+        .chat-room {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .chat-room.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-zone">
+            <a href="index.html" class="logo-link">
+                <img src="Image/lettre-g.png" alt="Logo" class="petit-logo">
+                <h1>Gamenter</h1>
+            </a>
+        </div>
+
+        <nav class="menu-zone">
+            <a href="index.html#jeux">🎮 Retour aux Jeux</a>
+            <a href="index.html#parametres">⚙️ Paramètres</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="content-section" style="max-width: 600px; margin: 40px auto; padding: 20px; text-align: center;">
+            
+            <!-- BOUTONS POUR CHANGER DE SALON -->
+            <div class="chat-tabs">
+                <button id="btn-tab-global" class="chat-tab-btn active" onclick="switchChat('global')">🌍 Salon Général</button>
+                <button id="btn-tab-ia" class="chat-tab-btn" onclick="switchChat('ia')">🤖 Discussion IA</button>
+            </div>
+
+            <!-- ======================================= -->
+            <!-- 1. SALON GÉNÉRAL (Ancien chat classique) -->
+            <!-- ======================================= -->
+            <div id="room-global" class="chat-room active">
+                <p>Discute et partage tes fichiers avec tous les joueurs !</p>
+                
+                <div id="messages-container" style="height: 350px; background: #000; color: #fff; overflow-y: auto; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; border: 1px solid var(--border-color);">
+                    <p style="color: #888; font-style: italic; text-align: center;">Chargement du chat global...</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="chat-message" placeholder="Ton message au groupe..." maxlength="100" style="padding: 12px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; background: var(--bg-color); padding: 8px; border-radius: 5px; border: 1px solid var(--border-color);">
+                        <label for="chat-file" style="cursor: pointer; font-size: 0.9rem; font-weight: bold;">📁 Fichier PC :</label>
+                        <input type="file" id="chat-file" accept="image/*,audio/mp3,video/mp4" style="font-size: 0.8rem; color: var(--text-color);">
+                    </div>
+
+                    <button id="chat-send" style="background: var(--accent-color); color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold;">Envoyer</button>
+                </div>
+            </div>
+
+            <!-- ======================================= -->
+            <!-- 2. SALON PRIVÉ IA (Nouveau) -->
+            <!-- ======================================= -->
+            <div id="room-ia" class="chat-room">
+                <p style="color: var(--accent-color, #00ffcc);">Discussion privée. L'IA Gamenter se souvient de tes messages !</p>
+                
+                <div id="messages-ia-container" style="height: 350px; background: #000; color: #fff; overflow-y: auto; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; border: 1px solid var(--accent-color, #00ffcc);">
+                    <p style="color: #888; font-style: italic; text-align: center;">Démarre la discussion avec l'IA...</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="chat-message-ia" placeholder="Pose ta question à l'IA..." maxlength="250" style="padding: 12px; border-radius: 5px; border: 1px solid var(--accent-color, #00ffcc); background: var(--bg-color); color: var(--text-color); font-family: inherit;">
+                    
+                    <button id="chat-send-ia" style="background: var(--accent-color, #00ffcc); color: #121212; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold;">Envoyer à l'IA</button>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Petit script intégré pour gérer l'affichage des onglets visuellement -->
+    <script>
+        function switchChat(room) {
+            // 1. Enlever la classe 'active' de tous les boutons et salons
+            document.getElementById('btn-tab-global').classList.remove('active');
+            document.getElementById('btn-tab-ia').classList.remove('active');
+            document.getElementById('room-global').classList.remove('active');
+            document.getElementById('room-ia').classList.remove('active');
+
+            // 2. Ajouter la classe 'active' au bouton cliqué et au salon correspondant
+            document.getElementById('btn-tab-' + room).classList.add('active');
+            document.getElementById('room-' + room).classList.add('active');
+        }
+    </script>
+
+    <!-- Ton Script JS Principal pour la base de données et l'IA -->
+    <script type="module" src="script.js"></script>
+</body>
+>>>>>>> 259d39bffaa8546bbaf6742f17fd53c28aaae907
 </html>

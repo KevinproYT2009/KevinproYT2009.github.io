@@ -1,31 +1,23 @@
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const {GoogleGenAI} = require("@google/genai");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-exports.chatWithGemini = onCall(
-  {cors: true, secrets: ["GEMINI_API_KEY"]},
-  async (request) => {
-    // L'initialisation se fait ici, quand la clé est bien accessible
-    const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+exports.chatWithGemini = onCall({ secrets: ["GEMINI_API_KEY"] }, async (request) => {
+  const prompt = request.data.prompt;
 
-    const userMessage = request.data.prompt;
-
-    if (!userMessage) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Le message ne peut pas être vide."
-      );
-    }
-
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: userMessage,
-      });
-
-      return {response: response.text};
-    } catch (error) {
-      console.error("Erreur Gemini :", error);
-      throw new HttpsError("internal", "Impossible de contacter l'IA.");
-    }
+  if (!prompt) {
+    throw new HttpsError("invalid-argument", "Le prompt est requis.");
   }
-);
+
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+
+    return { response: response.text() };
+  } catch (error) {
+    console.error("Erreur Gemini :", error);
+    throw new HttpsError("internal", "Erreur lors de la génération de la réponse.");
+  }
+});
