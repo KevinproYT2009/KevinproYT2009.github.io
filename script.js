@@ -736,7 +736,12 @@ function initAiChat() {
             const data = docSnap.data();
             const couleur = data.role === "model" ? "#00ffcc" : "#ffffff";
             
-            let nom = data.role === "model" ? "🤖 IA Gamenter" : userPseudo;
+            // Affiche le nom de l'IA avec le modèle utilisé entre parenthèses s'il est disponible
+            let nom = userPseudo;
+            if (data.role === "model") {
+                const badgeModele = data.modelUsed ? ` (${data.modelUsed})` : "";
+                nom = `🤖 IA Gamenter${badgeModele}`;
+            }
 
             messagesIaContainer.innerHTML += `<p style="color: ${couleur}; margin: 5px 0; word-break: break-word;"><strong>${nom} :</strong> ${data.texte}</p>`;
         });
@@ -767,11 +772,13 @@ function initAiChat() {
             // 2. Appeler la Firebase Cloud Function
             const result = await chatWithGemini({ prompt: texte });
             const reponseIA = result.data.response;
+            const modeleUtilise = result.data.modelUsed || "IA";
 
-            // 3. Enregistrer la réponse de l'IA dans Firestore
+            // 3. Enregistrer la réponse de l'IA dans Firestore avec le modèle utilisé
             await addDoc(messagesIaRef, {
                 texte: reponseIA,
                 role: "model",
+                modelUsed: modeleUtilise,
                 timestamp: serverTimestamp()
             });
         } catch (error) {
@@ -779,6 +786,7 @@ function initAiChat() {
             await addDoc(messagesIaRef, {
                 texte: "Désolé, une erreur est survenue lors de la communication avec l'IA.",
                 role: "model",
+                modelUsed: "Erreur",
                 timestamp: serverTimestamp()
             });
         }
