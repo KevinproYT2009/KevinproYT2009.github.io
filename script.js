@@ -736,7 +736,6 @@ function initAiChat() {
             const data = docSnap.data();
             const couleur = data.role === "model" ? "#00ffcc" : "#ffffff";
             
-            // Affiche le nom de l'IA avec le modèle utilisé entre parenthèses s'il est disponible
             let nom = userPseudo;
             if (data.role === "model") {
                 const badgeModele = data.modelUsed ? ` (${data.modelUsed})` : "";
@@ -771,10 +770,14 @@ function initAiChat() {
         try {
             // 2. Appeler la Firebase Cloud Function
             const result = await chatWithGemini({ prompt: texte });
-            const reponseIA = result.data.response;
-            const modeleUtilise = result.data.modelUsed || "IA";
+            
+            // Console log de contrôle pour vérifier l'objet dans F12
+            console.log("Données reçues de la Cloud Function :", result.data);
 
-            // 3. Enregistrer la réponse de l'IA dans Firestore avec le modèle utilisé
+            const reponseIA = result.data ? result.data.response : "Aucune réponse reçue.";
+            const modeleUtilise = (result.data && result.data.modelUsed) ? result.data.modelUsed : "Modèle Inconnu";
+
+            // 3. Enregistrer la réponse de l'IA dans Firestore
             await addDoc(messagesIaRef, {
                 texte: reponseIA,
                 role: "model",
