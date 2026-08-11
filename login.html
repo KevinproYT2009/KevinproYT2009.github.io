@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamenter - Connexion</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), 
+                        url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920') no-repeat center center fixed;
+            background-size: cover;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .auth-card {
+            background-color: #232527;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00a2ff;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            color: #b8b8b8;
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            background-color: #191919;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: none;
+            border: none;
+            color: #b8b8b8;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: #393b3d;
+            color: #ffffff;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background-color: #191919;
+            border: 1px solid #393b3d;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #00a2ff;
+        }
+
+        .btn-submit {
+            background-color: #00a2ff;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 5px;
+        }
+
+        .btn-submit:hover {
+            background-color: #0082cc;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            color: #666;
+            margin: 20px 0;
+            font-size: 0.85rem;
+        }
+
+        .divider::before, .divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid #393b3d;
+        }
+
+        .divider span {
+            padding: 0 10px;
+        }
+
+        .btn-google {
+            background-color: #ffffff;
+            color: #333333;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            transition: 0.2s;
+        }
+
+        .btn-google:hover {
+            background-color: #e6e6e6;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-card">
+        <div class="logo">GAMENTERCITY</div>
+        <p class="subtitle">Entre dans l'univers du jeu rétro</p>
+
+        <div class="tab-buttons">
+            <button class="tab-btn active" id="tab-login">Connexion</button>
+            <button class="tab-btn" id="tab-register">Inscription</button>
+        </div>
+
+        <form id="auth-form" onsubmit="return false;">
+            <div class="form-group">
+                <input type="text" id="auth-pseudo" placeholder="Pseudo" class="hidden" maxlength="15">
+                <input type="email" id="auth-email" placeholder="Adresse e-mail" required>
+                <input type="password" id="auth-password" placeholder="Mot de passe" required>
+                
+                <button type="button" id="btn-submit-action" class="btn-submit">Se connecter</button>
+            </div>
+        </form>
+
+        <div class="divider">
+            <span>OU</span>
+        </div>
+
+        <button type="button" id="btn-google" class="btn-google">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            Continuer avec Google
+        </button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, getDocs, query, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDX-ezd4VV_RAVaD4g0G0O2E5YBeutR6h8",
+            authDomain: "gamenter-chat.firebaseapp.com",
+            projectId: "gamenter-chat",
+            storageBucket: "gamenter-chat.firebasestorage.app",
+            messagingSenderId: "136972170017",
+            appId: "1:136972170017:web:3aa57e41907882e1650460"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        let isModeLogin = true;
+
+        const tabLogin = document.getElementById("tab-login");
+        const tabRegister = document.getElementById("tab-register");
+        const pseudoInput = document.getElementById("auth-pseudo");
+        const emailInput = document.getElementById("auth-email");
+        const passwordInput = document.getElementById("auth-password");
+        const btnSubmit = document.getElementById("btn-submit-action");
+        const btnGoogle = document.getElementById("btn-google");
+
+        // Si l'utilisateur est déjà connecté, redirection directe vers la plateforme
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                window.location.href = "index.html";
+            }
+        });
+
+        tabLogin.addEventListener("click", () => {
+            isModeLogin = true;
+            tabLogin.classList.add("active");
+            tabRegister.classList.remove("active");
+            pseudoInput.classList.add("hidden");
+            btnSubmit.textContent = "Se connecter";
+        });
+
+        tabRegister.addEventListener("click", () => {
+            isModeLogin = false;
+            tabRegister.classList.add("active");
+            tabLogin.classList.remove("active");
+            pseudoInput.classList.remove("hidden");
+            btnSubmit.textContent = "S'inscrire";
+        });
+
+        btnSubmit.addEventListener("click", async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            const pseudo = pseudoInput.value.trim();
+
+            if (!email || !password) {
+                alert("Merci de remplir l'e-mail et le mot de passe.");
+                return;
+            }
+
+            if (isModeLogin) {
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } catch (error) {
+                    alert("Erreur de connexion : " + error.message);
+                }
+            } else {
+                if (!pseudo) {
+                    alert("Merci de choisir un pseudo.");
+                    return;
+                }
+
+                try {
+                    const usersRef = collection(db, "users");
+                    const querySnapshot = await getDocs(query(usersRef));
+                    let pseudoPris = false;
+                    querySnapshot.forEach((docSnap) => {
+                        if (docSnap.data().pseudo && docSnap.data().pseudo.toLowerCase() === pseudo.toLowerCase()) {
+                            pseudoPris = true;
+                        }
+                    });
+
+                    if (pseudoPris) {
+                        alert("Ce pseudo est déjà utilisé !");
+                        return;
+                    }
+
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+
+                    await setDoc(doc(db, "users", user.uid), {
+                        email: email,
+                        pseudo: pseudo,
+                        totalSeconds: 0,
+                        isAdmin: false
+                    });
+
+                } catch (error) {
+                    alert("Erreur lors de l'inscription : " + error.message);
+                }
+            }
+        });
+
+        btnGoogle.addEventListener("click", async () => {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                const user = result.user;
+
+                const userDocRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (!userDoc.exists()) {
+                    let pseudoBase = user.displayName || "Gamer_" + Math.floor(Math.random() * 1000);
+                    await setDoc(userDocRef, {
+                        email: user.email,
+                        pseudo: pseudoBase,
+                        totalSeconds: 0,
+                        isAdmin: false
+                    });
+                }
+            } catch (error) {
+                alert("Erreur Google : " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
